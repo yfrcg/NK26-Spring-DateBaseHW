@@ -1,0 +1,28 @@
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 3306
+    DB_USER: str = "root"
+    DB_PASSWORD: str = "wys13389978139"
+    DB_NAME: str = "shared_space_booking_db"
+
+    AUTH_TOKEN_TTL_HOURS: int = 24
+    BOOTSTRAP_ADMIN_USER_NO: str = "admin"
+    BOOTSTRAP_ADMIN_PASSWORD: str = "admin123456"
+    BOOTSTRAP_ADMIN_REAL_NAME: str = "System Admin"
+
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            f"?charset=utf8mb4"
+        )
+
+    class Config:
+        env_file = ".env"
+
+
+settings = Settings()

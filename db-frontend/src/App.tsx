@@ -68,9 +68,25 @@ export default function App() {
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: '#1890ff',
-          borderRadius: 6,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          colorPrimary: '#4f46e5',
+          colorSuccess: '#10b981',
+          colorWarning: '#f59e0b',
+          colorError: '#ef4444',
+          colorInfo: '#3b82f6',
+          borderRadius: 10,
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+          colorBgLayout: '#f1f5f9',
+          colorBgContainer: '#ffffff',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        },
+        components: {
+          Card: {
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          },
+          Table: {
+            headerBg: '#f8fafc',
+            headerColor: '#475569',
+          },
         },
       }}
     >

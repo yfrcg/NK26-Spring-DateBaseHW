@@ -1,289 +1,332 @@
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Button, Card, Col, Empty, Input, message, Popconfirm, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import {
+  CalendarOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
   CloseCircleOutlined,
+  LoginOutlined,
   LogoutOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Input, Modal, Space, Table, Tag, Typography, message } from 'antd';
+import { motion } from 'framer-motion';
+import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { reservationApi, sessionApi } from '@/api';
-import { reservationStatusMap, sessionStatusMap } from '@/constants/domain';
+import { reservationStatusMap, reservationStatusColorMap, sessionStatusMap, sessionStatusColorMap } from '@/constants/domain';
 import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, UsageSession } from '@/types';
 import { logError } from '@/utils/logError';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+
+const statusIcons: Record<string, React.ReactNode> = {
+  CONFIRMED: <ClockCircleOutlined />,
+  IN_USE: <PlayCircleOutlined />,
+  FINISHED: <CheckCircleOutlined />,
+  CANCELLED: <CloseCircleOutlined />,
+  NO_SHOW: <ThunderboltOutlined />,
+};
 
 export default function ReservationsPage() {
   const { user } = useAuthStore();
+  const [loading, setLoading] = useState(true);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [sessions, setSessions] = useState<Record<number, UsageSession>>({});
-  const [loading, setLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
-  const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<number | null>(null);
-  const [cancelReason, setCancelReason] = useState('');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
 
-  const fetchReservations = useEffectEvent(async () => {
-    if (!user) {
-      return;
-    }
-
+  const load = async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const res = await reservationApi.listByUser(user.userId);
-      const data = res.data.data;
-      setReservations(data);
-
-      const sessionCandidates = data.filter(
-        (item) => item.reservationStatus === 'IN_USE' || item.reservationStatus === 'FINISHED'
-      );
-
-      const sessionResults = await Promise.all(
-        sessionCandidates.map(async (item) => {
+      setReservations(res.data.data);
+      const sessionEntries: Record<number, UsageSession> = {};
+      await Promise.all(
+        res.data.data.map(async (r) => {
           try {
-            const sessionRes = await sessionApi.getByReservation(item.reservationId);
-            return { reservationId: item.reservationId, session: sessionRes.data.data };
-          } catch (error) {
-            logError(error);
-            return null;
+            const sRes = await sessionApi.getByReservation(r.reservationId);
+            sessionEntries[r.reservationId] = sRes.data.data;
+          } catch {
+            /* ignore */
           }
         })
       );
-
-      const nextSessions: Record<number, UsageSession> = {};
-      sessionResults.forEach((item) => {
-        if (item) {
-          nextSessions[item.reservationId] = item.session;
-        }
-      });
-      setSessions(nextSessions);
+      setSessions(sessionEntries);
     } catch (error) {
       logError(error);
     } finally {
       setLoading(false);
     }
-  });
+  };
 
   useEffect(() => {
-    void fetchReservations();
-  }, [user?.userId, reloadKey]);
+    load();
+  }, [user]);
 
-  const handleCancel = async () => {
-    if (!cancelTarget) {
-      return;
-    }
-
+  const cancelReservation = async (id: number) => {
+    setActionLoading(id);
     try {
-      await reservationApi.cancel(cancelTarget, cancelReason || undefined);
-      message.success('预约已取消');
-      setCancelModalOpen(false);
-      setCancelReason('');
-      setCancelTarget(null);
-      setReloadKey((current) => current + 1);
+      await reservationApi.cancel(id);
+      message.success('已取消预约');
+      await load();
     } catch (error) {
       logError(error);
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleSessionAction = async (
-    reservationId: number,
-    action: 'checkIn' | 'tempHold' | 'resume' | 'checkOut'
-  ) => {
-    const actionMap = {
-      checkIn: sessionApi.checkIn,
-      tempHold: sessionApi.tempHold,
-      resume: sessionApi.resume,
-      checkOut: sessionApi.checkOut,
-    };
-
-    const messageMap = {
-      checkIn: '签到成功',
-      tempHold: '暂离成功',
-      resume: '恢复使用成功',
-      checkOut: '签退成功',
-    };
-
+  const sessionAction = async (id: number, action: 'checkIn' | 'checkOut' | 'tempHold' | 'resume') => {
+    setActionLoading(id);
     try {
-      await actionMap[action](reservationId);
-      message.success(messageMap[action]);
-      setReloadKey((current) => current + 1);
+      const actionMap: Record<string, (rid: number) => Promise<any>> = {
+        checkIn: sessionApi.checkIn,
+        checkOut: sessionApi.checkOut,
+        tempHold: sessionApi.tempHold,
+        resume: sessionApi.resume,
+      };
+      await actionMap[action](id);
+      const msgMap: Record<string, string> = {
+        checkIn: '签到成功',
+        checkOut: '签退成功',
+        tempHold: '已暂离',
+        resume: '已恢复使用',
+      };
+      message.success(msgMap[action]);
+      await load();
     } catch (error) {
       logError(error);
+    } finally {
+      setActionLoading(null);
     }
   };
+
+  const filteredReservations = search
+    ? reservations.filter(
+        (r) =>
+          r.reservationNo.toLowerCase().includes(search.toLowerCase()) ||
+          (reservationStatusMap[r.reservationStatus] || '').includes(search)
+      )
+    : reservations;
+
+  const stats = {
+    total: reservations.length,
+    confirmed: reservations.filter((r) => r.reservationStatus === 'CONFIRMED').length,
+    inUse: reservations.filter((r) => r.reservationStatus === 'IN_USE').length,
+    finished: reservations.filter((r) => r.reservationStatus === 'FINISHED').length,
+    cancelled: reservations.filter((r) => r.reservationStatus === 'CANCELLED').length,
+  };
+
+  const columns: ColumnsType<Reservation> = [
+    {
+      title: '预约编号',
+      dataIndex: 'reservationNo',
+      width: 180,
+      render: (v) => (
+        <Text copyable style={{ fontFamily: 'monospace', fontSize: 13 }}>
+          {v}
+        </Text>
+      ),
+    },
+    {
+      title: '预约时间',
+      width: 220,
+      render: (_, r) => (
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{dayjs(r.startTime).format('MM-DD HH:mm')}</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>至 {dayjs(r.endTime).format('MM-DD HH:mm')}</div>
+        </div>
+      ),
+    },
+    {
+      title: '状态',
+      dataIndex: 'reservationStatus',
+      width: 130,
+      render: (v) => (
+        <Tag
+          icon={statusIcons[v]}
+          color={reservationStatusColorMap[v]}
+          style={{ borderRadius: 20, border: 'none', fontWeight: 500 }}
+        >
+          {reservationStatusMap[v] || v}
+        </Tag>
+      ),
+    },
+    {
+      title: '使用状态',
+      width: 130,
+      render: (_, r) => {
+        const s = sessions[r.reservationId];
+        if (!s) return <Text type="secondary">-</Text>;
+        return (
+          <Tag
+            color={sessionStatusColorMap[s.sessionStatus]}
+            style={{ borderRadius: 20, border: 'none', fontWeight: 500 }}
+          >
+            {sessionStatusMap[s.sessionStatus] || s.sessionStatus}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: '计费模式',
+      width: 100,
+      render: (_, r) => (
+        <Tag
+          color={r.chargeModeSnapshot === 'FREE' ? 'green' : 'blue'}
+          style={{ borderRadius: 20, border: 'none' }}
+        >
+          {r.chargeModeSnapshot === 'FREE' ? '免费' : `${r.hourlyPriceSnapshot}元/h`}
+        </Tag>
+      ),
+    },
+    {
+      title: '预估金额',
+      dataIndex: 'amountEstimated',
+      width: 100,
+      render: (v) => (
+        <Text strong style={{ color: v > 0 ? '#f59e0b' : '#10b981' }}>
+          ¥{v?.toFixed(2) || '0.00'}
+        </Text>
+      ),
+    },
+    {
+      title: '操作',
+      width: 240,
+      fixed: 'right',
+      render: (_, r) => {
+        const s = sessions[r.reservationId];
+        const isLoading = actionLoading === r.reservationId;
+
+        if (r.reservationStatus === 'CONFIRMED') {
+          return (
+            <Space>
+              <Button
+                type="primary"
+                size="small"
+                icon={<LoginOutlined />}
+                loading={isLoading}
+                onClick={() => sessionAction(r.reservationId, 'checkIn')}
+                style={{ borderRadius: 8 }}
+              >
+                签到
+              </Button>
+              <Popconfirm title="确认取消预约？" onConfirm={() => cancelReservation(r.reservationId)} okText="确认" cancelText="取消">
+                <Button danger size="small" icon={<CloseCircleOutlined />} style={{ borderRadius: 8 }}>
+                  取消
+                </Button>
+              </Popconfirm>
+            </Space>
+          );
+        }
+
+        if (r.reservationStatus === 'IN_USE' && s) {
+          return (
+            <Space>
+              {s.sessionStatus === 'IN_USE' && (
+                <Button
+                  size="small"
+                  icon={<PauseCircleOutlined />}
+                  loading={isLoading}
+                  onClick={() => sessionAction(r.reservationId, 'tempHold')}
+                  style={{ borderRadius: 8 }}
+                >
+                  暂离
+                </Button>
+              )}
+              {s.sessionStatus === 'TEMP_HOLD' && (
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<PlayCircleOutlined />}
+                  loading={isLoading}
+                  onClick={() => sessionAction(r.reservationId, 'resume')}
+                  style={{ borderRadius: 8 }}
+                >
+                  恢复
+                </Button>
+              )}
+              <Popconfirm title="确认签退？将自动结算费用。" onConfirm={() => sessionAction(r.reservationId, 'checkOut')} okText="确认" cancelText="取消">
+                <Button danger size="small" icon={<LogoutOutlined />} style={{ borderRadius: 8 }}>
+                  签退
+                </Button>
+              </Popconfirm>
+            </Space>
+          );
+        }
+
+        return <Text type="secondary">-</Text>;
+      },
+    },
+  ];
 
   return (
-    <div>
-      <Title level={4} style={{ marginBottom: 24 }}>
-        我的预约
-      </Title>
-      <Card style={{ borderRadius: 8 }}>
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            <CalendarOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            我的预约
+          </Title>
+          <Text type="secondary">管理您的预约，支持签到、暂离、签退操作</Text>
+        </div>
+        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
+          刷新
+        </Button>
+      </div>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {[
+          { label: '全部预约', value: stats.total, color: '#6366f1', bg: '#eef2ff' },
+          { label: '待签到', value: stats.confirmed, color: '#f59e0b', bg: '#fffbeb' },
+          { label: '使用中', value: stats.inUse, color: '#3b82f6', bg: '#eff6ff' },
+          { label: '已完成', value: stats.finished, color: '#10b981', bg: '#ecfdf5' },
+        ].map((s, i) => (
+          <Col xs={12} sm={6} key={i}>
+            <Card
+              style={{ borderRadius: 14, border: 'none', background: '#fff' }}
+              styles={{ body: { padding: '18px 20px' } }}
+            >
+              <Statistic
+                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.label}</span>}
+                value={s.value}
+                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Card
+        style={{ borderRadius: 16, border: 'none' }}
+        styles={{ body: { padding: 0 } }}
+      >
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="搜索预约编号或状态..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ maxWidth: 320, borderRadius: 10 }}
+          />
+        </div>
         <Table
-          columns={[
-            { title: '预约编号', dataIndex: 'reservationNo', key: 'reservationNo', width: 180 },
-            { title: '空间 ID', dataIndex: 'spaceId', key: 'spaceId', width: 90 },
-            {
-              title: '开始时间',
-              dataIndex: 'startTime',
-              key: 'startTime',
-              width: 160,
-              render: (value: string) => dayjs(value).format('MM-DD HH:mm'),
-            },
-            {
-              title: '结束时间',
-              dataIndex: 'endTime',
-              key: 'endTime',
-              width: 160,
-              render: (value: string) => dayjs(value).format('MM-DD HH:mm'),
-            },
-            {
-              title: '预约状态',
-              dataIndex: 'reservationStatus',
-              key: 'reservationStatus',
-              width: 110,
-              render: (value: string) => {
-                const item = reservationStatusMap[value] || { color: 'default', text: value };
-                return <Tag color={item.color}>{item.text}</Tag>;
-              },
-            },
-            {
-              title: '预计费用',
-              dataIndex: 'amountEstimated',
-              key: 'amountEstimated',
-              width: 100,
-              render: (value: number) => `¥${value.toFixed(2)}`,
-            },
-            {
-              title: '会话状态',
-              key: 'sessionStatus',
-              width: 110,
-              render: (_: unknown, record: Reservation) => {
-                const session = sessions[record.reservationId];
-                if (!session) {
-                  return '-';
-                }
-                const item = sessionStatusMap[session.sessionStatus] || {
-                  color: 'default',
-                  text: session.sessionStatus,
-                };
-                return <Tag color={item.color}>{item.text}</Tag>;
-              },
-            },
-            {
-              title: '操作',
-              key: 'actions',
-              width: 280,
-              render: (_: unknown, record: Reservation) => {
-                const session = sessions[record.reservationId];
-                return (
-                  <Space size={4} wrap>
-                    {record.reservationStatus === 'CONFIRMED' && (
-                      <>
-                        <Button
-                          size="small"
-                          type="primary"
-                          icon={<CheckCircleOutlined />}
-                          onClick={() => {
-                            void handleSessionAction(record.reservationId, 'checkIn');
-                          }}
-                        >
-                          签到
-                        </Button>
-                        <Button
-                          size="small"
-                          danger
-                          icon={<CloseCircleOutlined />}
-                          onClick={() => {
-                            setCancelTarget(record.reservationId);
-                            setCancelModalOpen(true);
-                          }}
-                        >
-                          取消
-                        </Button>
-                      </>
-                    )}
-                    {session?.sessionStatus === 'IN_USE' && (
-                      <>
-                        <Button
-                          size="small"
-                          icon={<PauseCircleOutlined />}
-                          onClick={() => {
-                            void handleSessionAction(record.reservationId, 'tempHold');
-                          }}
-                        >
-                          暂离
-                        </Button>
-                        <Button
-                          size="small"
-                          icon={<LogoutOutlined />}
-                          onClick={() => {
-                            void handleSessionAction(record.reservationId, 'checkOut');
-                          }}
-                        >
-                          签退
-                        </Button>
-                      </>
-                    )}
-                    {session?.sessionStatus === 'TEMP_HOLD' && (
-                      <>
-                        <Button
-                          size="small"
-                          type="primary"
-                          icon={<PlayCircleOutlined />}
-                          onClick={() => {
-                            void handleSessionAction(record.reservationId, 'resume');
-                          }}
-                        >
-                          恢复
-                        </Button>
-                        <Button
-                          size="small"
-                          icon={<LogoutOutlined />}
-                          onClick={() => {
-                            void handleSessionAction(record.reservationId, 'checkOut');
-                          }}
-                        >
-                          签退
-                        </Button>
-                      </>
-                    )}
-                  </Space>
-                );
-              },
-            },
-          ]}
-          dataSource={reservations}
+          columns={columns}
+          dataSource={filteredReservations}
           rowKey="reservationId"
           loading={loading}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 1120 }}
+          pagination={{ pageSize: 8, showTotal: (t) => `共 ${t} 条记录`, showSizeChanger: false }}
+          scroll={{ x: 1000 }}
+          locale={{ emptyText: <Empty description="暂无预约记录" /> }}
         />
       </Card>
-
-      <Modal
-        title="取消预约"
-        open={cancelModalOpen}
-        onOk={() => {
-          void handleCancel();
-        }}
-        onCancel={() => {
-          setCancelModalOpen(false);
-          setCancelReason('');
-        }}
-        okText="确认取消"
-        cancelText="返回"
-      >
-        <Input.TextArea
-          value={cancelReason}
-          onChange={(event) => setCancelReason(event.target.value)}
-          placeholder="请输入取消原因（选填）"
-          rows={3}
-          style={{ marginTop: 12 }}
-        />
-      </Modal>
-    </div>
+    </motion.div>
   );
 }

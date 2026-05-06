@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Alert, Button, Card, Form, Input, Select, Tabs, Typography, message } from 'antd';
-import { LockOutlined, MailOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Card, Form, Input, Select, Tabs, Typography, message } from 'antd';
+import { LockOutlined, MailOutlined, PhoneOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import { motion } from 'framer-motion';
 import { authApi } from '@/api';
 import { registerUserTypeOptions } from '@/constants/domain';
 import { useAuthStore } from '@/stores/authStore';
@@ -29,7 +30,7 @@ export default function LoginPage() {
       const res = await authApi.login(values);
       const session = res.data.data;
       setSession(session.token, session.user);
-      message.success('登录成功');
+      message.success('登录成功，欢迎回来！');
       navigate(from, { replace: true });
     } catch (error) {
       logError(error);
@@ -57,7 +58,7 @@ export default function LoginPage() {
       const res = await authApi.register(payload);
       const session = res.data.data;
       setSession(session.token, session.user);
-      message.success('注册成功');
+      message.success('注册成功！');
       navigate('/dashboard', { replace: true });
     } catch (error) {
       logError(error);
@@ -69,126 +70,219 @@ export default function LoginPage() {
   return (
     <Card
       style={{
-        width: 420,
+        width: 440,
         maxWidth: '100%',
-        borderRadius: 12,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+        borderRadius: 20,
+        boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        overflow: 'hidden',
       }}
-      styles={{ body: { padding: '32px 32px 24px' } }}
+      styles={{ body: { padding: '40px 36px 32px' } }}
     >
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <Title level={3} style={{ marginBottom: 4 }}>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.4 }}
+        style={{ textAlign: 'center', marginBottom: 32 }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 16,
+            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px',
+            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.35)',
+          }}
+        >
+          <SafetyCertificateOutlined style={{ fontSize: 28, color: '#fff' }} />
+        </div>
+        <Title level={3} style={{ marginBottom: 6, fontWeight: 700, color: '#0f172a' }}>
           共享空间预约系统
         </Title>
-        <Text type="secondary">登录后即可浏览、预约和管理共享空间资源</Text>
-      </div>
+        <Text type="secondary" style={{ fontSize: 14 }}>
+          Smart Shared Space Booking Platform
+        </Text>
+      </motion.div>
 
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-        message="默认管理员账号"
-        description="首次启动时系统会自动创建管理员账号：admin，默认密码：admin123456。登录后可在个人信息页修改密码。"
-      />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.25, duration: 0.4 }}
+      >
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%)',
+            border: '1px solid #e0e7ff',
+            borderRadius: 10,
+            padding: '10px 14px',
+            marginBottom: 24,
+            fontSize: 13,
+            color: '#4338ca',
+          }}
+        >
+          <strong>演示账号</strong>：admin / admin123456
+        </div>
 
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        centered
-        items={[
-          {
-            key: 'login',
-            label: '登录',
-            children: (
-              <Form onFinish={handleLogin} size="large" autoComplete="off" layout="vertical">
-                <Form.Item
-                  name="userNo"
-                  label="用户编号"
-                  rules={[{ required: true, message: '请输入用户编号' }]}
-                >
-                  <Input prefix={<UserOutlined />} placeholder="例如：admin、学号或工号" />
-                </Form.Item>
-                <Form.Item
-                  name="password"
-                  label="密码"
-                  rules={[{ required: true, message: '请输入密码' }]}
-                >
-                  <Input.Password prefix={<LockOutlined />} placeholder="请输入密码" />
-                </Form.Item>
-                <Form.Item style={{ marginBottom: 0 }}>
-                  <Button type="primary" htmlType="submit" loading={loading} block>
-                    登录
-                  </Button>
-                </Form.Item>
-              </Form>
-            ),
-          },
-          {
-            key: 'register',
-            label: '注册',
-            children: (
-              <Form onFinish={handleRegister} size="large" autoComplete="off" layout="vertical">
-                <Form.Item
-                  name="userNo"
-                  label="用户编号"
-                  rules={[{ required: true, message: '请输入用户编号' }]}
-                >
-                  <Input prefix={<UserOutlined />} placeholder="请输入用户编号" />
-                </Form.Item>
-                <Form.Item
-                  name="realName"
-                  label="真实姓名"
-                  rules={[{ required: true, message: '请输入真实姓名' }]}
-                >
-                  <Input prefix={<UserOutlined />} placeholder="请输入真实姓名" />
-                </Form.Item>
-                <Form.Item name="phone" label="手机号">
-                  <Input prefix={<PhoneOutlined />} placeholder="选填" />
-                </Form.Item>
-                <Form.Item name="email" label="邮箱">
-                  <Input prefix={<MailOutlined />} placeholder="选填" />
-                </Form.Item>
-                <Form.Item name="userType" label="用户类型" initialValue="STUDENT">
-                  <Select options={registerUserTypeOptions} />
-                </Form.Item>
-                <Form.Item
-                  name="password"
-                  label="密码"
-                  rules={[
-                    { required: true, message: '请输入密码' },
-                    { min: 6, message: '密码至少 6 位' },
-                  ]}
-                >
-                  <Input.Password prefix={<LockOutlined />} placeholder="至少 6 位" />
-                </Form.Item>
-                <Form.Item
-                  name="confirmPassword"
-                  label="确认密码"
-                  dependencies={['password']}
-                  rules={[
-                    { required: true, message: '请再次输入密码' },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue('password') === value) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(new Error('两次输入的密码不一致'));
-                      },
-                    }),
-                  ]}
-                >
-                  <Input.Password prefix={<LockOutlined />} placeholder="请再次输入密码" />
-                </Form.Item>
-                <Form.Item style={{ marginBottom: 0 }}>
-                  <Button type="primary" htmlType="submit" loading={loading} block>
-                    注册并登录
-                  </Button>
-                </Form.Item>
-              </Form>
-            ),
-          },
-        ]}
-      />
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          centered
+          style={{ marginTop: -4 }}
+          items={[
+            {
+              key: 'login',
+              label: '登录',
+              children: (
+                <Form onFinish={handleLogin} size="large" autoComplete="off" layout="vertical">
+                  <Form.Item
+                    name="userNo"
+                    rules={[{ required: true, message: '请输入用户编号' }]}
+                  >
+                    <Input
+                      prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
+                      placeholder="用户编号（如 admin）"
+                      style={{ height: 48, borderRadius: 10 }}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="password"
+                    rules={[{ required: true, message: '请输入密码' }]}
+                  >
+                    <Input.Password
+                      prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                      placeholder="密码"
+                      style={{ height: 48, borderRadius: 10 }}
+                    />
+                  </Form.Item>
+                  <Form.Item style={{ marginBottom: 8 }}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={loading}
+                      block
+                      style={{
+                        height: 48,
+                        borderRadius: 10,
+                        fontSize: 15,
+                        fontWeight: 600,
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                        border: 'none',
+                        boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+                      }}
+                    >
+                      登 录
+                    </Button>
+                  </Form.Item>
+                </Form>
+              ),
+            },
+            {
+              key: 'register',
+              label: '注册',
+              children: (
+                <Form onFinish={handleRegister} size="large" autoComplete="off" layout="vertical">
+                  <Form.Item
+                    name="userNo"
+                    rules={[{ required: true, message: '请输入用户编号' }]}
+                  >
+                    <Input
+                      prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
+                      placeholder="用户编号（学号/工号）"
+                      style={{ height: 44, borderRadius: 10 }}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="realName"
+                    rules={[{ required: true, message: '请输入真实姓名' }]}
+                  >
+                    <Input
+                      prefix={<UserOutlined style={{ color: '#9ca3af' }} />}
+                      placeholder="真实姓名"
+                      style={{ height: 44, borderRadius: 10 }}
+                    />
+                  </Form.Item>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <Form.Item name="phone" style={{ flex: 1 }}>
+                      <Input
+                        prefix={<PhoneOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="手机号（选填）"
+                        style={{ height: 44, borderRadius: 10 }}
+                      />
+                    </Form.Item>
+                    <Form.Item name="email" style={{ flex: 1 }}>
+                      <Input
+                        prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="邮箱（选填）"
+                        style={{ height: 44, borderRadius: 10 }}
+                      />
+                    </Form.Item>
+                  </div>
+                  <Form.Item name="userType" initialValue="STUDENT">
+                    <Select options={registerUserTypeOptions} style={{ height: 44 }} />
+                  </Form.Item>
+                  <Form.Item
+                    name="password"
+                    rules={[
+                      { required: true, message: '请输入密码' },
+                      { min: 6, message: '密码至少 6 位' },
+                    ]}
+                  >
+                    <Input.Password
+                      prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                      placeholder="密码（至少 6 位）"
+                      style={{ height: 44, borderRadius: 10 }}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="confirmPassword"
+                    dependencies={['password']}
+                    rules={[
+                      { required: true, message: '请再次输入密码' },
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          if (!value || getFieldValue('password') === value) {
+                            return Promise.resolve();
+                          }
+                          return Promise.reject(new Error('两次输入的密码不一致'));
+                        },
+                      }),
+                    ]}
+                  >
+                    <Input.Password
+                      prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                      placeholder="确认密码"
+                      style={{ height: 44, borderRadius: 10 }}
+                    />
+                  </Form.Item>
+                  <Form.Item style={{ marginBottom: 8 }}>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={loading}
+                      block
+                      style={{
+                        height: 48,
+                        borderRadius: 10,
+                        fontSize: 15,
+                        fontWeight: 600,
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                        border: 'none',
+                        boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+                      }}
+                    >
+                      注册并登录
+                    </Button>
+                  </Form.Item>
+                </Form>
+              ),
+            },
+          ]}
+        />
+      </motion.div>
     </Card>
   );
 }

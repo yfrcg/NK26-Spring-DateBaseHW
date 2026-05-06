@@ -1,20 +1,30 @@
-import { useEffect, useEffectEvent, useState } from 'react';
-import { CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, Card, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Card, Col, Empty, message, Popconfirm, Row, Statistic, Table, Tag, Typography, Input } from 'antd';
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  TeamOutlined,
+  UserSwitchOutlined,
+} from '@ant-design/icons';
+import { motion } from 'framer-motion';
+import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { adminApi } from '@/api';
-import { accountStatusMap, userTypeMap } from '@/constants/domain';
+import { userTypeMap, accountStatusMap, accountStatusColorMap } from '@/constants/domain';
 import type { User } from '@/types';
 import { logError } from '@/utils/logError';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [users, setUsers] = useState<User[]>([]);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
 
-  const fetchUsers = useEffectEvent(async () => {
+  const load = async () => {
     setLoading(true);
     try {
       const res = await adminApi.user.list();
@@ -24,129 +34,180 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  });
+  };
 
   useEffect(() => {
-    void fetchUsers();
-  }, [reloadKey]);
+    load();
+  }, []);
 
-  const handleStatusChange = async (userId: number, action: 'suspend' | 'activate') => {
-    const fn = action === 'suspend' ? adminApi.user.suspend : adminApi.user.activate;
+  const toggleStatus = async (userId: number, activate: boolean) => {
+    setActionLoading(userId);
     try {
-      await fn(userId);
-      message.success(action === 'suspend' ? '用户已停用' : '用户已启用');
-      setReloadKey((current) => current + 1);
+      if (activate) {
+        await adminApi.user.activate(userId);
+        message.success('用户已启用');
+      } else {
+        await adminApi.user.suspend(userId);
+        message.success('用户已停用');
+      }
+      await load();
     } catch (error) {
       logError(error);
+    } finally {
+      setActionLoading(null);
     }
   };
 
+  const filtered = search
+    ? users.filter((u) =>
+        u.realName.toLowerCase().includes(search.toLowerCase()) ||
+        u.userNo.toLowerCase().includes(search.toLowerCase()) ||
+        (userTypeMap[u.userType] || '').includes(search)
+      )
+    : users;
+
+  const stats = {
+    total: users.length,
+    active: users.filter((u) => u.accountStatus === 'ACTIVE').length,
+    admin: users.filter((u) => u.userType === 'ADMIN').length,
+    suspended: users.filter((u) => u.accountStatus === 'SUSPENDED').length,
+  };
+
+  const columns: ColumnsType<User> = [
+    {
+      title: '用户编号',
+      dataIndex: 'userNo',
+      width: 130,
+      render: (v) => <Text strong style={{ fontFamily: 'monospace' }}>{v}</Text>,
+    },
+    {
+      title: '姓名',
+      dataIndex: 'realName',
+      width: 100,
+    },
+    {
+      title: '类型',
+      dataIndex: 'userType',
+      width: 100,
+      render: (v) => (
+        <Tag color={v === 'ADMIN' ? 'purple' : v === 'STUDENT' ? 'blue' : 'cyan'} style={{ borderRadius: 20, border: 'none' }}>
+          {userTypeMap[v] || v}
+        </Tag>
+      ),
+    },
+    {
+      title: '状态',
+      dataIndex: 'accountStatus',
+      width: 100,
+      render: (v) => (
+        <Tag color={accountStatusColorMap[v]} style={{ borderRadius: 20, border: 'none' }}>
+          {accountStatusMap[v] || v}
+        </Tag>
+      ),
+    },
+    {
+      title: '信用分',
+      dataIndex: 'creditScore',
+      width: 90,
+      render: (v) => (
+        <Text strong style={{ color: v >= 800 ? '#10b981' : v >= 600 ? '#f59e0b' : '#ef4444' }}>
+          {v ?? '-'}
+        </Text>
+      ),
+    },
+    { title: '手机号', dataIndex: 'phone', width: 130, render: (v) => v || '-' },
+    { title: '邮箱', dataIndex: 'email', width: 180, ellipsis: true, render: (v) => v || '-' },
+    {
+      title: '最后登录',
+      dataIndex: 'lastLoginTime',
+      width: 170,
+      render: (v) => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-',
+    },
+    {
+      title: '操作',
+      width: 130,
+      fixed: 'right',
+      render: (_, r) => {
+        const isLoading = actionLoading === r.userId;
+        const isActive = r.accountStatus === 'ACTIVE';
+        return (
+          <Popconfirm
+            title={isActive ? '确认停用此用户？' : '确认启用此用户？'}
+            onConfirm={() => toggleStatus(r.userId, !isActive)}
+            okText="确认"
+            cancelText="取消"
+          >
+            <Button
+              type={isActive ? 'default' : 'primary'}
+              danger={isActive}
+              size="small"
+              loading={isLoading}
+              icon={isActive ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
+              style={{ borderRadius: 8 }}
+            >
+              {isActive ? '停用' : '启用'}
+            </Button>
+          </Popconfirm>
+        );
+      },
+    },
+  ];
+
   return (
-    <div>
-      <Title level={4} style={{ marginBottom: 24 }}>
-        用户管理
-      </Title>
-      <Card style={{ borderRadius: 8 }}>
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            <TeamOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            用户管理
+          </Title>
+          <Text type="secondary">管理系统用户，查看状态并进行启用/停用操作</Text>
+        </div>
+        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
+          刷新
+        </Button>
+      </div>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {[
+          { label: '总用户数', value: stats.total, icon: <TeamOutlined />, color: '#6366f1' },
+          { label: '正常用户', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
+          { label: '管理员', value: stats.admin, icon: <UserSwitchOutlined />, color: '#8b5cf6' },
+          { label: '已停用', value: stats.suspended, icon: <CloseCircleOutlined />, color: '#ef4444' },
+        ].map((s, i) => (
+          <Col xs={12} sm={6} key={i}>
+            <Card style={{ borderRadius: 14, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
+              <Statistic
+                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.icon} {s.label}</span>}
+                value={s.value}
+                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: 0 } }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="搜索用户编号、姓名或类型..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ maxWidth: 320, borderRadius: 10 }}
+          />
+        </div>
         <Table
-          columns={[
-            { title: 'ID', dataIndex: 'userId', key: 'userId', width: 60 },
-            { title: '用户编号', dataIndex: 'userNo', key: 'userNo', width: 120 },
-            { title: '姓名', dataIndex: 'realName', key: 'realName', width: 100 },
-            {
-              title: '手机号',
-              dataIndex: 'phone',
-              key: 'phone',
-              width: 120,
-              render: (value: string | null) => value || '-',
-            },
-            {
-              title: '邮箱',
-              dataIndex: 'email',
-              key: 'email',
-              width: 200,
-              ellipsis: true,
-              render: (value: string | null) => value || '-',
-            },
-            {
-              title: '类型',
-              dataIndex: 'userType',
-              key: 'userType',
-              width: 100,
-              render: (value: string) => <Tag color="blue">{userTypeMap[value] || value}</Tag>,
-            },
-            {
-              title: '状态',
-              dataIndex: 'accountStatus',
-              key: 'accountStatus',
-              width: 110,
-              render: (value: string) => {
-                const item = accountStatusMap[value] || { color: 'default', text: value };
-                return <Tag color={item.color}>{item.text}</Tag>;
-              },
-            },
-            {
-              title: '信用分',
-              dataIndex: 'creditScore',
-              key: 'creditScore',
-              width: 90,
-              render: (value: number) => (
-                <span
-                  style={{
-                    color: value >= 80 ? '#52c41a' : value >= 60 ? '#faad14' : '#ff4d4f',
-                    fontWeight: 600,
-                  }}
-                >
-                  {value}
-                </span>
-              ),
-            },
-            {
-              title: '注册时间',
-              dataIndex: 'createdAt',
-              key: 'createdAt',
-              width: 160,
-              render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm'),
-            },
-            {
-              title: '操作',
-              key: 'actions',
-              width: 140,
-              render: (_: unknown, record: User) => (
-                <Space size={4}>
-                  {record.accountStatus === 'ACTIVE' ? (
-                    <Popconfirm
-                      title="确认停用该用户吗？"
-                      onConfirm={() => {
-                        void handleStatusChange(record.userId, 'suspend');
-                      }}
-                    >
-                      <Button size="small" danger icon={<StopOutlined />}>
-                        停用
-                      </Button>
-                    </Popconfirm>
-                  ) : (
-                    <Popconfirm
-                      title="确认启用该用户吗？"
-                      onConfirm={() => {
-                        void handleStatusChange(record.userId, 'activate');
-                      }}
-                    >
-                      <Button size="small" type="primary" icon={<CheckCircleOutlined />}>
-                        启用
-                      </Button>
-                    </Popconfirm>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-          dataSource={users}
+          columns={columns}
+          dataSource={filtered}
           rowKey="userId"
           loading={loading}
-          pagination={{ pageSize: 15 }}
-          scroll={{ x: 1180 }}
+          pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 个用户`, showSizeChanger: false }}
+          scroll={{ x: 1100 }}
+          locale={{ emptyText: <Empty description="暂无用户数据" /> }}
         />
       </Card>
-    </div>
+    </motion.div>
   );
 }

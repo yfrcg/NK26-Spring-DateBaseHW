@@ -1,20 +1,36 @@
-import { useEffect, useEffectEvent, useState } from 'react';
-import { CheckCircleOutlined, StopOutlined, ToolOutlined } from '@ant-design/icons';
-import { Button, Card, Popconfirm, Space as AntSpace, Table, Tag, Typography, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Card, Col, Empty, message, Popconfirm, Row, Space as ASpace, Statistic, Table, Tag, Typography, Input } from 'antd';
+import {
+  BankOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  ToolOutlined,
+} from '@ant-design/icons';
+import { motion } from 'framer-motion';
+import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { adminApi } from '@/api';
-import { spaceStatusMap, spaceTypeMap } from '@/constants/domain';
+import { spaceStatusMap, spaceStatusColorMap, spaceTypeMap } from '@/constants/domain';
 import type { Space } from '@/types';
 import { logError } from '@/utils/logError';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+
+const statusIcons: Record<string, React.ReactNode> = {
+  ACTIVE: <CheckCircleOutlined />,
+  DISABLED: <CloseCircleOutlined />,
+  MAINTENANCE: <ToolOutlined />,
+};
 
 export default function AdminSpacesPage() {
-  const [spaces, setSpaces] = useState<Space[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
 
-  const fetchSpaces = useEffectEvent(async () => {
+  const load = async () => {
     setLoading(true);
     try {
       const res = await adminApi.space.list();
@@ -24,132 +40,197 @@ export default function AdminSpacesPage() {
     } finally {
       setLoading(false);
     }
-  });
+  };
 
   useEffect(() => {
-    void fetchSpaces();
-  }, [reloadKey]);
+    load();
+  }, []);
 
-  const handleAction = async (spaceId: number, action: 'disable' | 'activate' | 'maintenance') => {
+  const changeStatus = async (spaceId: number, action: 'activate' | 'disable' | 'maintenance') => {
+    setActionLoading(spaceId);
     try {
-      const fn = {
-        disable: adminApi.space.disable,
-        activate: adminApi.space.activate,
-        maintenance: adminApi.space.maintenance,
-      }[action];
-      await fn(spaceId);
-      message.success(
-        action === 'disable' ? '空间已停用' : action === 'activate' ? '空间已启用' : '空间已设为维护中'
-      );
-      setReloadKey((current) => current + 1);
+      if (action === 'activate') {
+        await adminApi.space.activate(spaceId);
+        message.success('空间已启用');
+      } else if (action === 'disable') {
+        await adminApi.space.disable(spaceId);
+        message.success('空间已停用');
+      } else {
+        await adminApi.space.maintenance(spaceId);
+        message.success('已标记为维护中');
+      }
+      await load();
     } catch (error) {
       logError(error);
+    } finally {
+      setActionLoading(null);
     }
   };
 
+  const filtered = search
+    ? spaces.filter((s) =>
+        s.spaceName.toLowerCase().includes(search.toLowerCase()) ||
+        s.spaceCode.toLowerCase().includes(search.toLowerCase()) ||
+        (spaceTypeMap[s.spaceType] || '').includes(search)
+      )
+    : spaces;
+
+  const stats = {
+    total: spaces.length,
+    active: spaces.filter((s) => s.status === 'ACTIVE').length,
+    disabled: spaces.filter((s) => s.status === 'DISABLED').length,
+    maintenance: spaces.filter((s) => s.status === 'MAINTENANCE').length,
+  };
+
+  const columns: ColumnsType<Space> = [
+    {
+      title: '空间编码',
+      dataIndex: 'spaceCode',
+      width: 120,
+      render: (v) => <Text strong style={{ fontFamily: 'monospace' }}>{v}</Text>,
+    },
+    { title: '空间名称', dataIndex: 'spaceName', width: 160 },
+    {
+      title: '类型',
+      dataIndex: 'spaceType',
+      width: 110,
+      render: (v) => (
+        <Tag color="geekblue" style={{ borderRadius: 20, border: 'none' }}>
+          {spaceTypeMap[v] || v}
+        </Tag>
+      ),
+    },
+    { title: '容量', dataIndex: 'capacity', width: 80, render: (v) => <Text strong>{v}</Text> },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 120,
+      render: (v) => (
+        <Tag
+          icon={statusIcons[v]}
+          color={spaceStatusColorMap[v]}
+          style={{ borderRadius: 20, border: 'none' }}
+        >
+          {spaceStatusMap[v] || v}
+        </Tag>
+      ),
+    },
+    {
+      title: '设备描述',
+      dataIndex: 'equipmentDesc',
+      ellipsis: true,
+      render: (v) => v || '-',
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'createdAt',
+      width: 170,
+      render: (v) => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-',
+    },
+    {
+      title: '操作',
+      width: 260,
+      fixed: 'right',
+      render: (_, r) => {
+        const isLoading = actionLoading === r.spaceId;
+        return (
+          <ASpace>
+            <Popconfirm title="确认启用此空间？" onConfirm={() => changeStatus(r.spaceId, 'activate')} okText="确认" cancelText="取消">
+              <Button
+                type="primary"
+                size="small"
+                icon={<CheckCircleOutlined />}
+                loading={isLoading}
+                disabled={r.status === 'ACTIVE'}
+                style={{ borderRadius: 8 }}
+              >
+                启用
+              </Button>
+            </Popconfirm>
+            <Popconfirm title="确认标记为维护中？" onConfirm={() => changeStatus(r.spaceId, 'maintenance')} okText="确认" cancelText="取消">
+              <Button
+                size="small"
+                icon={<ToolOutlined />}
+                loading={isLoading}
+                disabled={r.status === 'MAINTENANCE'}
+                style={{ borderRadius: 8 }}
+              >
+                维护
+              </Button>
+            </Popconfirm>
+            <Popconfirm title="确认停用此空间？" onConfirm={() => changeStatus(r.spaceId, 'disable')} okText="确认" cancelText="取消">
+              <Button
+                danger
+                size="small"
+                icon={<CloseCircleOutlined />}
+                loading={isLoading}
+                disabled={r.status === 'DISABLED'}
+                style={{ borderRadius: 8 }}
+              >
+                停用
+              </Button>
+            </Popconfirm>
+          </ASpace>
+        );
+      },
+    },
+  ];
+
   return (
-    <div>
-      <Title level={4} style={{ marginBottom: 24 }}>
-        空间管理
-      </Title>
-      <Card style={{ borderRadius: 8 }}>
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <Title level={3} style={{ marginBottom: 4 }}>
+            <BankOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            空间管理
+          </Title>
+          <Text type="secondary">管理共享空间，设置启用/停用/维护状态</Text>
+        </div>
+        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
+          刷新
+        </Button>
+      </div>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {[
+          { label: '总空间数', value: stats.total, icon: <BankOutlined />, color: '#6366f1' },
+          { label: '可用', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
+          { label: '维护中', value: stats.maintenance, icon: <ToolOutlined />, color: '#f59e0b' },
+          { label: '已停用', value: stats.disabled, icon: <CloseCircleOutlined />, color: '#ef4444' },
+        ].map((s, i) => (
+          <Col xs={12} sm={6} key={i}>
+            <Card style={{ borderRadius: 14, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
+              <Statistic
+                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.icon} {s.label}</span>}
+                value={s.value}
+                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: 0 } }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+          <Input
+            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            placeholder="搜索空间编码、名称或类型..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ maxWidth: 320, borderRadius: 10 }}
+          />
+        </div>
         <Table
-          columns={[
-            { title: 'ID', dataIndex: 'spaceId', key: 'spaceId', width: 60 },
-            { title: '空间编号', dataIndex: 'spaceCode', key: 'spaceCode', width: 120 },
-            { title: '空间名称', dataIndex: 'spaceName', key: 'spaceName', width: 160 },
-            {
-              title: '类型',
-              dataIndex: 'spaceType',
-              key: 'spaceType',
-              width: 100,
-              render: (value: string) => <Tag color="blue">{spaceTypeMap[value] || value}</Tag>,
-            },
-            {
-              title: '容量',
-              dataIndex: 'capacity',
-              key: 'capacity',
-              width: 70,
-              render: (value: number) => `${value} 人`,
-            },
-            {
-              title: '设备',
-              dataIndex: 'equipmentDesc',
-              key: 'equipmentDesc',
-              width: 180,
-              ellipsis: true,
-              render: (value: string | null) => value || '-',
-            },
-            {
-              title: '状态',
-              dataIndex: 'status',
-              key: 'status',
-              width: 100,
-              render: (value: string) => {
-                const item = spaceStatusMap[value] || { color: 'default', text: value };
-                return <Tag color={item.color}>{item.text}</Tag>;
-              },
-            },
-            {
-              title: '创建时间',
-              dataIndex: 'createdAt',
-              key: 'createdAt',
-              width: 160,
-              render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm'),
-            },
-            {
-              title: '操作',
-              key: 'actions',
-              width: 220,
-              render: (_: unknown, record: Space) => (
-                <AntSpace size={4} wrap>
-                  {record.status !== 'ACTIVE' && (
-                    <Popconfirm
-                      title="确认启用该空间吗？"
-                      onConfirm={() => {
-                        void handleAction(record.spaceId, 'activate');
-                      }}
-                    >
-                      <Button size="small" type="primary" icon={<CheckCircleOutlined />}>
-                        启用
-                      </Button>
-                    </Popconfirm>
-                  )}
-                  {record.status !== 'DISABLED' && (
-                    <Popconfirm
-                      title="确认停用该空间吗？"
-                      onConfirm={() => {
-                        void handleAction(record.spaceId, 'disable');
-                      }}
-                    >
-                      <Button size="small" danger icon={<StopOutlined />}>
-                        停用
-                      </Button>
-                    </Popconfirm>
-                  )}
-                  {record.status !== 'MAINTENANCE' && (
-                    <Popconfirm
-                      title="确认设为维护中吗？"
-                      onConfirm={() => {
-                        void handleAction(record.spaceId, 'maintenance');
-                      }}
-                    >
-                      <Button size="small" icon={<ToolOutlined />}>
-                        维护
-                      </Button>
-                    </Popconfirm>
-                  )}
-                </AntSpace>
-              ),
-            },
-          ]}
-          dataSource={spaces}
+          columns={columns}
+          dataSource={filtered}
           rowKey="spaceId"
           loading={loading}
-          pagination={{ pageSize: 15 }}
-          scroll={{ x: 1220 }}
+          pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 个空间`, showSizeChanger: false }}
+          scroll={{ x: 1100 }}
+          locale={{ emptyText: <Empty description="暂无空间数据" /> }}
         />
       </Card>
-    </div>
+    </motion.div>
   );
 }

@@ -1,60 +1,64 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import {
   Button,
   Card,
   Col,
-  Empty,
-  Form,
   InputNumber,
   message,
   Modal,
   Row,
-  Space,
-  Spin,
+  Space as AntSpace,
   Statistic,
   Table,
   Tag,
   Typography,
 } from 'antd';
 import {
+  AccountBookOutlined,
   ArrowDownOutlined,
   ArrowUpOutlined,
   DollarOutlined,
-  HistoryOutlined,
-  LockOutlined,
   PlusOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
 import { accountApi } from '@/api';
-import { txnTypeMap, txnDirectionMap } from '@/constants/domain';
 import { useAuthStore } from '@/stores/authStore';
-import type { AccountTransaction, RechargeRequest, UserAccount } from '@/types';
+import type { Transaction, UserAccount } from '@/types';
 import { logError } from '@/utils/logError';
 
 const { Title, Text } = Typography;
 
+const txnTypeMap: Record<string, string> = {
+  RECHARGE: '充值',
+  CONSUME: '消费',
+  REFUND: '退款',
+  ADJUST: '调整',
+  NO_SHOW: '爽约',
+  OVERTIME: '超时',
+  HOLD_TIMEOUT: '暂离超时',
+  MANUAL_RESTORE: '手动恢复',
+};
+
 export default function AccountPage() {
   const { user } = useAuthStore();
-  const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<UserAccount | null>(null);
-  const [transactions, setTransactions] = useState<AccountTransaction[]>([]);
-  const [rechargeModalOpen, setRechargeModalOpen] = useState(false);
-  const [rechargeLoading, setRechargeLoading] = useState(false);
-  const [form] = Form.useForm();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState<number>(100);
+  const [recharging, setRecharging] = useState(false);
 
-  const load = async () => {
+  const fetchData = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [accRes, txRes] = await Promise.all([
+      const [accRes, txnRes] = await Promise.all([
         accountApi.getAccount(user.userId),
-        accountApi.listTransactions(user.userId),
+        accountApi.getTransactions(user.userId),
       ]);
       setAccount(accRes.data.data);
-      setTransactions(txRes.data.data);
+      setTransactions(txnRes.data.data);
     } catch (error) {
       logError(error);
     } finally {
@@ -63,256 +67,200 @@ export default function AccountPage() {
   };
 
   useEffect(() => {
-    load();
+    fetchData();
   }, [user]);
 
-  const handleRecharge = async (values: RechargeRequest) => {
-    if (!user) return;
-    setRechargeLoading(true);
+  const handleRecharge = async () => {
+    if (!user || !rechargeAmount || rechargeAmount <= 0) return;
+    setRecharging(true);
     try {
-      await accountApi.recharge(user.userId, values);
-      message.success(`充值成功 ¥${values.amount.toFixed(2)}`);
-      setRechargeModalOpen(false);
-      form.resetFields();
-      await load();
+      await accountApi.recharge(user.userId, { amount: rechargeAmount });
+      message.success(`充值成功！已充入 ¥${rechargeAmount.toFixed(2)}`);
+      setRechargeOpen(false);
+      fetchData();
     } catch (error) {
       logError(error);
     } finally {
-      setRechargeLoading(false);
+      setRecharging(false);
     }
   };
 
-  const columns: ColumnsType<AccountTransaction> = [
+  const columns = [
     {
-      title: '流水编号',
-      dataIndex: 'txnNo',
+      title: '时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
       width: 180,
-      render: (v) => (
-        <Text copyable style={{ fontFamily: 'monospace', fontSize: 12 }}>
-          {v}
-        </Text>
-      ),
+      render: (v: string) => new Date(v).toLocaleString('zh-CN'),
     },
     {
       title: '类型',
       dataIndex: 'txnType',
-      width: 100,
-      render: (v) => (
-        <Tag color={v === 'RECHARGE' ? 'green' : v === 'CONSUME' ? 'orange' : v === 'REFUND' ? 'blue' : 'default'} style={{ borderRadius: 20, border: 'none' }}>
-          {txnTypeMap[v] || v}
-        </Tag>
-      ),
+      key: 'txnType',
+      width: 120,
+      render: (v: string) => <Tag>{txnTypeMap[v] || v}</Tag>,
     },
     {
       title: '方向',
       dataIndex: 'direction',
+      key: 'direction',
       width: 80,
-      render: (v) => (
-        <Tag
-          icon={v === 'IN' ? <ArrowDownOutlined /> : <ArrowUpOutlined />}
-          color={v === 'IN' ? 'success' : 'error'}
-          style={{ borderRadius: 20, border: 'none' }}
-        >
-          {txnDirectionMap[v] || v}
-        </Tag>
-      ),
+      render: (v: string) =>
+        v === 'IN' ? (
+          <Tag icon={<ArrowUpOutlined />} color="success">收入</Tag>
+        ) : v === 'OUT' ? (
+          <Tag icon={<ArrowDownOutlined />} color="error">支出</Tag>
+        ) : (
+          <Tag>—</Tag>
+        ),
     },
     {
       title: '金额',
       dataIndex: 'amount',
+      key: 'amount',
       width: 120,
-      render: (v, r) => (
-        <Text strong style={{ color: r.direction === 'IN' ? '#10b981' : '#ef4444', fontSize: 14 }}>
-          {r.direction === 'IN' ? '+' : '-'}¥{v?.toFixed(2)}
-        </Text>
-      ),
-    },
-    {
-      title: '变动前余额',
-      dataIndex: 'beforeBalance',
-      width: 120,
-      render: (v) => <Text type="secondary">¥{v?.toFixed(2)}</Text>,
-    },
-    {
-      title: '变动后余额',
-      dataIndex: 'afterBalance',
-      width: 120,
-      render: (v) => <Text strong>¥{v?.toFixed(2)}</Text>,
+      render: (_: number | undefined, r: Transaction) =>
+        r.amount != null ? (
+          <Text style={{ color: r.direction === 'IN' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+            {r.direction === 'IN' ? '+' : '-'}¥{r.amount.toFixed(2)}
+          </Text>
+        ) : r.creditDelta != null ? (
+          <Text style={{ color: r.direction === 'IN' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+            {r.direction === 'IN' ? '+' : ''}{r.creditDelta}分
+          </Text>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
     },
     {
       title: '备注',
       dataIndex: 'remark',
+      key: 'remark',
       ellipsis: true,
-    },
-    {
-      title: '时间',
-      dataIndex: 'createdAt',
-      width: 170,
-      render: (v) => dayjs(v).format('YYYY-MM-DD HH:mm:ss'),
     },
   ];
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '120px 0' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
       <div style={{ marginBottom: 28 }}>
         <Title level={3} style={{ marginBottom: 4 }}>
-          <WalletOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
-          账户中心
+          <WalletOutlined style={{ marginRight: 8, color: '#2563eb' }} />
+          我的钱包
         </Title>
-        <Text type="secondary">管理您的账户余额、查看交易流水</Text>
+        <Text type="secondary">查看账户余额、充值及交易明细</Text>
       </div>
 
-      <Row gutter={[20, 20]} style={{ marginBottom: 24 }}>
-        <Col xs={24} lg={8}>
-          <Card
-            style={{
-              borderRadius: 20,
-              border: 'none',
-              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-              color: '#fff',
-              overflow: 'hidden',
-              position: 'relative',
-            }}
-            styles={{ body: { padding: '28px' } }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: -30,
-                right: -30,
-                width: 120,
-                height: 120,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.1)',
-              }}
+      <Row gutter={20} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
+            <Statistic
+              title="可用余额"
+              value={account?.balance ?? 0}
+              precision={2}
+              prefix="¥"
+              valueStyle={{ color: '#2563eb', fontWeight: 700, fontSize: 28 }}
+              suffix={
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => setRechargeOpen(true)}
+                  style={{ marginLeft: 8, borderRadius: 8 }}
+                >
+                  充值
+                </Button>
+              }
             />
-            <div style={{ position: 'relative' }}>
-              <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>
-                <WalletOutlined style={{ marginRight: 6 }} />
-                可用余额
-              </div>
-              <div style={{ fontSize: 38, fontWeight: 700, lineHeight: 1.2, marginBottom: 20 }}>
-                ¥{account?.balance?.toFixed(2) || '0.00'}
-              </div>
-              <Button
-                ghost
-                icon={<PlusOutlined />}
-                onClick={() => setRechargeModalOpen(true)}
-                style={{
-                  borderRadius: 10,
-                  borderColor: 'rgba(255,255,255,0.4)',
-                  color: '#fff',
-                  fontWeight: 500,
-                }}
-              >
-                充值
-              </Button>
-            </div>
           </Card>
         </Col>
-
-        <Col xs={24} lg={16}>
-          <Row gutter={[16, 16]}>
-            {[
-              { title: '冻结金额', value: account?.frozenAmount || 0, icon: <LockOutlined />, color: '#f59e0b', prefix: '¥' },
-              { title: '欠费金额', value: account?.arrearsAmount || 0, icon: <DollarOutlined />, color: '#ef4444', prefix: '¥' },
-              { title: '累计充值', value: account?.totalRecharge || 0, icon: <ArrowDownOutlined />, color: '#10b981', prefix: '¥' },
-              { title: '累计消费', value: account?.totalSpend || 0, icon: <ArrowUpOutlined />, color: '#6366f1', prefix: '¥' },
-            ].map((item, i) => (
-              <Col xs={12} key={i}>
-                <Card
-                  style={{ borderRadius: 16, border: 'none', height: '100%' }}
-                  styles={{ body: { padding: '20px' } }}
-                >
-                  <Statistic
-                    title={
-                      <span style={{ fontSize: 12, color: '#64748b' }}>
-                        {item.icon} {item.title}
-                      </span>
-                    }
-                    value={item.value}
-                    precision={2}
-                    prefix={item.prefix}
-                    valueStyle={{ fontSize: 24, fontWeight: 700, color: item.color }}
-                  />
-                </Card>
-              </Col>
-            ))}
-          </Row>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
+            <Statistic
+              title="累计充值"
+              value={account?.totalRecharge ?? 0}
+              precision={2}
+              prefix="¥"
+              valueStyle={{ color: '#10b981', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
+            <Statistic
+              title="累计消费"
+              value={account?.totalSpend ?? 0}
+              precision={2}
+              prefix="¥"
+              valueStyle={{ color: '#f59e0b', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
+            <Statistic
+              title="欠费金额"
+              value={account?.arrearsAmount ?? 0}
+              precision={2}
+              prefix="¥"
+              valueStyle={{ color: '#ef4444', fontWeight: 600 }}
+            />
+          </Card>
         </Col>
       </Row>
 
       <Card
-        title={
-          <Space>
-            <HistoryOutlined style={{ color: '#4f46e5' }} />
-            <span style={{ fontWeight: 600 }}>交易流水</span>
-          </Space>
-        }
         style={{ borderRadius: 16, border: 'none' }}
-        styles={{ body: { padding: 0 } }}
+        title={
+          <AntSpace>
+            <AccountBookOutlined style={{ color: '#2563eb' }} />
+            <span style={{ fontWeight: 600 }}>交易明细</span>
+          </AntSpace>
+        }
       >
         <Table
-          columns={columns}
           dataSource={transactions}
+          columns={columns}
           rowKey="txnId"
-          pagination={{ pageSize: 8, showTotal: (t) => `共 ${t} 条记录`, showSizeChanger: false }}
-          scroll={{ x: 1000 }}
-          locale={{ emptyText: <Empty description="暂无交易记录" /> }}
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: '暂无交易记录' }}
         />
       </Card>
 
       <Modal
         title={
-          <Space>
-            <DollarOutlined style={{ color: '#4f46e5' }} />
+          <AntSpace>
+            <DollarOutlined style={{ color: '#2563eb' }} />
             <span>账户充值</span>
-          </Space>
+          </AntSpace>
         }
-        open={rechargeModalOpen}
-        onCancel={() => setRechargeModalOpen(false)}
-        footer={null}
-        destroyOnClose
-        width={400}
+        open={rechargeOpen}
+        onCancel={() => setRechargeOpen(false)}
+        onOk={handleRecharge}
+        confirmLoading={recharging}
+        okText="确认充值"
+        cancelText="取消"
       >
-        <Form form={form} layout="vertical" onFinish={handleRecharge} style={{ marginTop: 16 }}>
-          <Form.Item name="amount" label="充值金额（元）" rules={[{ required: true, message: '请输入金额' }, { type: 'number', min: 0.01, message: '金额必须大于 0' }]}>
-            <InputNumber min={0.01} step={100} precision={2} style={{ width: '100%' }} size="large" prefix="¥" />
-          </Form.Item>
-          <Space wrap style={{ marginBottom: 16 }}>
+        <div style={{ padding: '16px 0' }}>
+          <Text style={{ display: 'block', marginBottom: 12 }}>请输入充值金额：</Text>
+          <InputNumber
+            style={{ width: '100%' }}
+            min={1}
+            max={10000}
+            precision={2}
+            value={rechargeAmount}
+            onChange={(v) => setRechargeAmount(v ?? 100)}
+            prefix="¥"
+            size="large"
+          />
+          <AntSpace style={{ marginTop: 12 }}>
             {[50, 100, 200, 500].map((v) => (
-              <Button key={v} onClick={() => form.setFieldsValue({ amount: v })}>
+              <Button key={v} onClick={() => setRechargeAmount(v)}>
                 ¥{v}
               </Button>
             ))}
-          </Space>
-          <Form.Item style={{ marginBottom: 0 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={rechargeLoading}
-              block
-              icon={<DollarOutlined />}
-              style={{
-                height: 44,
-                borderRadius: 10,
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                border: 'none',
-              }}
-            >
-              确认充值
-            </Button>
-          </Form.Item>
-        </Form>
+          </AntSpace>
+        </div>
       </Modal>
     </motion.div>
   );

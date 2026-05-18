@@ -1,5 +1,5 @@
 import request from './request';
-import type { Result, User, Space, Reservation, PricingPolicy, CreditTransaction, CreditAdjustRequest } from '@/types';
+import type { Result, User, Space, Reservation, PricingPolicy, CreditAdjustRequest } from '@/types';
 
 export const adminApi = {
   user: {
@@ -28,11 +28,17 @@ export const adminApi = {
   },
   credit: {
     adjust: (userId: number, data: CreditAdjustRequest) =>
-      request.post<Result<CreditTransaction>>(`/admin/credits/${userId}/adjust`, data),
+      request.post<Result<{ creditScore: number }>>(`/admin/credits/${userId}/adjust`, data),
   },
   policy: {
     list: () =>
       request.get<Result<PricingPolicy[]>>('/admin/policies'),
+    create: (data: Partial<PricingPolicy>) =>
+      request.post<Result<PricingPolicy>>('/admin/policies', data),
+    update: (policyId: number, data: Partial<PricingPolicy>) =>
+      request.put<Result<PricingPolicy>>(`/admin/policies/${policyId}`, data),
+    delete: (policyId: number) =>
+      request.delete<Result<PricingPolicy>>(`/admin/policies/${policyId}`),
     enable: (policyId: number) =>
       request.post<Result<PricingPolicy>>(`/admin/policies/${policyId}/enable`),
     disable: (policyId: number) =>

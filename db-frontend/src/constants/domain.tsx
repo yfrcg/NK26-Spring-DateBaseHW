@@ -43,19 +43,8 @@ export const spaceStatusColorMap: Record<string, string> = {
   MAINTENANCE: 'orange',
 };
 
-export const runtimeStatusMap: Record<string, string> = {
-  IDLE: '空闲',
-  IN_USE: '使用中',
-  TEMP_HOLD: '暂离中',
-};
-
-export const runtimeStatusColorMap: Record<string, string> = {
-  IDLE: 'green',
-  IN_USE: 'blue',
-  TEMP_HOLD: 'gold',
-};
-
 export const reservationStatusMap: Record<string, string> = {
+  PENDING: '待确认',
   CONFIRMED: '待签到',
   IN_USE: '使用中',
   FINISHED: '已完成',
@@ -64,6 +53,7 @@ export const reservationStatusMap: Record<string, string> = {
 };
 
 export const reservationStatusColorMap: Record<string, string> = {
+  PENDING: 'default',
   CONFIRMED: 'processing',
   IN_USE: 'cyan',
   FINISHED: 'success',
@@ -97,8 +87,18 @@ export const chargeModeMap: Record<string, string> = {
   PAID: '按时计费',
 };
 
+export const chargeModeColorMap: Record<string, string> = {
+  FREE: 'green',
+  PAID: 'blue',
+};
+
+export const chargeModeLabelMap: Record<string, string> = {
+  FREE: '免费',
+  PAID: '付费',
+};
+
 export const creditEventMap: Record<string, string> = {
-  MANUAL_ADJUST: '手动调整',
+  ADJUST: '手动调整',
   MANUAL_RESTORE: '手动恢复',
   NO_SHOW: '预约未到',
   OVERTIME: '超时扣分',
@@ -106,7 +106,7 @@ export const creditEventMap: Record<string, string> = {
 };
 
 export const creditEventColorMap: Record<string, string> = {
-  MANUAL_ADJUST: 'purple',
+  ADJUST: 'purple',
   MANUAL_RESTORE: 'green',
   NO_SHOW: 'red',
   OVERTIME: 'volcano',
@@ -118,11 +118,16 @@ export const txnTypeMap: Record<string, string> = {
   CONSUME: '消费',
   REFUND: '退款',
   ADJUST: '调整',
+  NO_SHOW: '爽约扣费',
+  OVERTIME: '超时扣费',
+  HOLD_TIMEOUT: '暂离超时扣费',
+  MANUAL_RESTORE: '手动恢复',
 };
 
 export const txnDirectionMap: Record<string, string> = {
   IN: '收入',
   OUT: '支出',
+  NONE: '—',
 };
 
 export const spaceTypeMap: Record<string, string> = {

@@ -9,4 +9,3 @@ export { creditApi } from './credit';
 export { sessionApi } from './session';
 export { reportApi } from './report';
 export { adminApi } from './admin';
-export { runtimeApi } from './runtime';

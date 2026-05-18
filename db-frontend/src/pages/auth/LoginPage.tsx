@@ -4,6 +4,7 @@ import { Button, Card, Form, Input, Select, Tabs, Typography, message } from 'an
 import { LockOutlined, MailOutlined, PhoneOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import { authApi } from '@/api';
+import heroImage from '@/assets/workspace-hero.svg';
 import { registerUserTypeOptions } from '@/constants/domain';
 import { useAuthStore } from '@/stores/authStore';
 import type { LoginRequest, RegisterRequest } from '@/types';
@@ -69,33 +70,62 @@ export default function LoginPage() {
 
   return (
     <Card
+      className="auth-card-shell"
       style={{
-        width: 440,
+        width: 920,
         maxWidth: '100%',
-        borderRadius: 20,
-        boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 8,
+        boxShadow: '0 30px 80px rgba(15, 23, 42, 0.28)',
+        border: '1px solid rgba(255,255,255,0.2)',
         overflow: 'hidden',
       }}
-      styles={{ body: { padding: '40px 36px 32px' } }}
+      styles={{ body: { padding: 0 } }}
     >
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.4 }}
-        style={{ textAlign: 'center', marginBottom: 32 }}
-      >
+      <div className="auth-card-grid">
+        <div className="auth-visual-panel">
+          <div className="auth-brand-mark">
+            <SafetyCertificateOutlined />
+          </div>
+          <div>
+            <Title level={2} style={{ color: '#fff', marginBottom: 10, fontWeight: 800 }}>
+              共享空间预约系统
+            </Title>
+            <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 15 }}>
+              面向自习室、工位与会议空间的预约、签到、计费和信用管理平台。
+            </Text>
+          </div>
+          <img src={heroImage} alt="共享空间预约系统" className="auth-hero-image" />
+          <div className="auth-flow-panel">
+            <span>今日开放</span>
+            <strong>08:00 - 22:00</strong>
+            <small>实时锁定空闲时段</small>
+          </div>
+          <div className="auth-proof-row">
+            <span>预约</span>
+            <span>签到</span>
+            <span>结算</span>
+            <span>信用</span>
+          </div>
+        </div>
+
+        <div className="auth-form-panel">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.4 }}
+            style={{ textAlign: 'center', marginBottom: 28 }}
+          >
         <div
           style={{
-            width: 56,
-            height: 56,
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+            width: 52,
+            height: 52,
+            borderRadius: 8,
+            background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 16px',
-            boxShadow: '0 8px 24px rgba(79, 70, 229, 0.35)',
+            margin: '0 auto 14px',
+            boxShadow: '0 12px 28px rgba(37, 99, 235, 0.24)',
           }}
         >
           <SafetyCertificateOutlined style={{ fontSize: 28, color: '#fff' }} />
@@ -106,13 +136,13 @@ export default function LoginPage() {
         <Text type="secondary" style={{ fontSize: 14 }}>
           Smart Shared Space Booking Platform
         </Text>
-      </motion.div>
+          </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.25, duration: 0.4 }}
-      >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25, duration: 0.4 }}
+          >
         <div
           style={{
             background: 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%)',
@@ -169,9 +199,9 @@ export default function LoginPage() {
                         borderRadius: 10,
                         fontSize: 15,
                         fontWeight: 600,
-                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                        background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)',
                         border: 'none',
-                        boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+                        boxShadow: '0 8px 18px rgba(37, 99, 235, 0.24)',
                       }}
                     >
                       登 录
@@ -269,9 +299,9 @@ export default function LoginPage() {
                         borderRadius: 10,
                         fontSize: 15,
                         fontWeight: 600,
-                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                        background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)',
                         border: 'none',
-                        boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)',
+                        boxShadow: '0 8px 18px rgba(37, 99, 235, 0.24)',
                       }}
                     >
                       注册并登录
@@ -282,7 +312,9 @@ export default function LoginPage() {
             },
           ]}
         />
-      </motion.div>
+          </motion.div>
+        </div>
+      </div>
     </Card>
   );
 }

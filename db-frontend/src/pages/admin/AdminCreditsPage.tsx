@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Button, Card, Col, Empty, Form, Input, InputNumber, message, Modal, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import {
   EditOutlined,
@@ -12,7 +12,7 @@ import {
 import { motion } from 'framer-motion';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { adminApi, userApi, creditApi } from '@/api';
+import { userApi, creditApi } from '@/api';
 import { creditEventMap, creditEventColorMap } from '@/constants/domain';
 import type { User, CreditTransaction, CreditAdjustRequest } from '@/types';
 import { logError } from '@/utils/logError';
@@ -44,7 +44,7 @@ export default function AdminCreditsPage() {
   const loadRecords = async (userId: number) => {
     setRecordsLoading(true);
     try {
-      const res = await creditApi.listByUser(userId);
+      const res = await creditApi.listTransactions(userId);
       setCreditRecords(res.data.data);
     } catch (error) {
       logError(error);
@@ -67,7 +67,7 @@ export default function AdminCreditsPage() {
     if (!selectedUserId) return;
     setAdjustLoading(true);
     try {
-      await adminApi.credit.adjust(selectedUserId, values);
+      await creditApi.manualAdjust(selectedUserId, values);
       message.success('信用分调整成功');
       setAdjustModalOpen(false);
       form.resetFields();
@@ -89,7 +89,7 @@ export default function AdminCreditsPage() {
       dataIndex: 'creditScore',
       width: 90,
       render: (v) => (
-        <Text strong style={{ color: v >= 800 ? '#10b981' : v >= 600 ? '#f59e0b' : '#ef4444' }}>
+        <Text strong style={{ color: v >= 80 ? '#10b981' : v >= 60 ? '#f59e0b' : '#ef4444' }}>
           {v ?? '-'}
         </Text>
       ),
@@ -114,7 +114,7 @@ export default function AdminCreditsPage() {
   const recordColumns: ColumnsType<CreditTransaction> = [
     {
       title: '事件类型',
-      dataIndex: 'eventType',
+      dataIndex: 'txnType',
       width: 130,
       render: (v) => (
         <Tag color={creditEventColorMap[v] || 'default'} style={{ borderRadius: 20, border: 'none', fontWeight: 500 }}>
@@ -124,11 +124,11 @@ export default function AdminCreditsPage() {
     },
     {
       title: '变动分值',
-      dataIndex: 'changeScore',
+      dataIndex: 'creditDelta',
       width: 100,
       render: (v) => (
-        <Text strong style={{ color: v > 0 ? '#10b981' : '#ef4444', fontSize: 14 }}>
-          {v > 0 ? '+' : ''}{v}
+        <Text strong style={{ color: (v ?? 0) > 0 ? '#10b981' : '#ef4444', fontSize: 14 }}>
+          {v != null && v > 0 ? '+' : ''}{v ?? '-'}
         </Text>
       ),
     },
@@ -136,15 +136,15 @@ export default function AdminCreditsPage() {
       title: '变动前',
       dataIndex: 'beforeScore',
       width: 80,
-      render: (v) => <Text type="secondary">{v}</Text>,
+      render: (v) => <Text type="secondary">{v ?? '-'}</Text>,
     },
     {
       title: '变动后',
       dataIndex: 'afterScore',
       width: 80,
-      render: (v) => <Text strong>{v}</Text>,
+      render: (v) => <Text strong>{v ?? '-'}</Text>,
     },
-    { title: '原因', dataIndex: 'reasonText', ellipsis: true, render: (v) => v || '-' },
+    { title: '备注', dataIndex: 'remark', ellipsis: true, render: (v) => v || '-' },
     {
       title: '时间',
       dataIndex: 'createdAt',
@@ -158,7 +158,7 @@ export default function AdminCreditsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>
-            <SafetyCertificateOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            <SafetyCertificateOutlined style={{ marginRight: 8, color: '#2563eb' }} />
             信用分管理
           </Title>
           <Text type="secondary">查看用户信用记录，手动调整信用分</Text>
@@ -171,7 +171,7 @@ export default function AdminCreditsPage() {
               onClick={() => setAdjustModalOpen(true)}
               style={{
                 borderRadius: 8,
-                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                 border: 'none',
               }}
             >
@@ -189,7 +189,7 @@ export default function AdminCreditsPage() {
           <Card
             title={
               <Space>
-                <UserOutlined style={{ color: '#4f46e5' }} />
+                <UserOutlined style={{ color: '#2563eb' }} />
                 <span style={{ fontWeight: 600 }}>用户列表</span>
               </Space>
             }
@@ -233,7 +233,7 @@ export default function AdminCreditsPage() {
                         width: 48,
                         height: 48,
                         borderRadius: 14,
-                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                        background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -252,11 +252,11 @@ export default function AdminCreditsPage() {
                     <Statistic
                       title={<span style={{ fontSize: 11, color: '#64748b' }}>信用分</span>}
                       value={selectedUser.creditScore ?? 0}
-                      suffix="/ 1000"
+                      suffix="/ 100"
                       valueStyle={{
                         fontSize: 28,
                         fontWeight: 700,
-                        color: (selectedUser.creditScore ?? 0) >= 800 ? '#10b981' : (selectedUser.creditScore ?? 0) >= 600 ? '#f59e0b' : '#ef4444',
+                        color: (selectedUser.creditScore ?? 0) >= 80 ? '#10b981' : (selectedUser.creditScore ?? 0) >= 60 ? '#f59e0b' : '#ef4444',
                       }}
                     />
                   </Col>
@@ -266,7 +266,7 @@ export default function AdminCreditsPage() {
               <Card
                 title={
                   <Space>
-                    <HistoryOutlined style={{ color: '#4f46e5' }} />
+                    <HistoryOutlined style={{ color: '#2563eb' }} />
                     <span style={{ fontWeight: 600 }}>信用变动记录</span>
                   </Space>
                 }
@@ -276,7 +276,7 @@ export default function AdminCreditsPage() {
                 <Table
                   columns={recordColumns}
                   dataSource={creditRecords}
-                  rowKey="creditTxnId"
+                  rowKey="txnId"
                   loading={recordsLoading}
                   pagination={{ pageSize: 8, showTotal: (t) => `共 ${t} 条记录`, showSizeChanger: false }}
                   size="small"
@@ -295,7 +295,7 @@ export default function AdminCreditsPage() {
       <Modal
         title={
           <Space>
-            <EditOutlined style={{ color: '#4f46e5' }} />
+            <EditOutlined style={{ color: '#2563eb' }} />
             <span>调整信用分 · {selectedUser?.realName}</span>
           </Space>
         }
@@ -306,16 +306,16 @@ export default function AdminCreditsPage() {
         width={440}
       >
         <div style={{ margin: '12px 0 16px', padding: '12px 16px', background: '#f8fafc', borderRadius: 10, fontSize: 13, color: '#64748b' }}>
-          当前信用分：<Text strong style={{ color: (selectedUser?.creditScore ?? 0) >= 800 ? '#10b981' : '#f59e0b', fontSize: 18 }}>
+          当前信用分：<Text strong style={{ color: (selectedUser?.creditScore ?? 0) >= 80 ? '#10b981' : '#f59e0b', fontSize: 18 }}>
             {selectedUser?.creditScore ?? 0}
-          </Text> / 1000
+          </Text> / 100
         </div>
         <Form form={form} layout="vertical" onFinish={handleAdjust}>
           <Form.Item name="changeScore" label="变动分值" rules={[{ required: true, message: '请输入变动分值' }]}>
             <InputNumber
               style={{ width: '100%' }}
-              min={-1000}
-              max={1000}
+              min={-100}
+              max={100}
               addonBefore={<PlusOutlined />}
               placeholder="正数为加分，负数为扣分"
             />
@@ -334,7 +334,7 @@ export default function AdminCreditsPage() {
                 height: 44,
                 borderRadius: 10,
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                 border: 'none',
               }}
             >

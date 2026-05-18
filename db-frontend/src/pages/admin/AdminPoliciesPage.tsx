@@ -1,31 +1,45 @@
-import { useEffect, useState } from 'react';
-import { Button, Card, Col, Empty, message, Popconfirm, Row, Statistic, Table, Tag, Typography, Input } from 'antd';
+﻿import { useEffect, useState } from 'react';
 import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  DollarOutlined,
-  LockOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-  SettingOutlined,
-  UnlockOutlined,
+  Button,
+  Card,
+  Col,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Modal,
+  Row,
+  Select,
+  Space as AntSpace,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
-import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 import { adminApi } from '@/api';
-import { chargeModeMap } from '@/constants/domain';
+import { chargeModeColorMap, chargeModeLabelMap } from '@/constants/domain';
 import type { PricingPolicy } from '@/types';
 import { logError } from '@/utils/logError';
 
 const { Title, Text } = Typography;
 
 export default function AdminPoliciesPage() {
-  const [loading, setLoading] = useState(true);
   const [policies, setPolicies] = useState<PricingPolicy[]>([]);
-  const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<PricingPolicy | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [form] = Form.useForm();
 
-  const load = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const res = await adminApi.policy.list();
@@ -38,192 +52,248 @@ export default function AdminPoliciesPage() {
   };
 
   useEffect(() => {
-    load();
+    fetchData();
   }, []);
 
-  const togglePolicy = async (policyId: number, enable: boolean) => {
-    setActionLoading(policyId);
+  const openCreate = () => {
+    setEditingPolicy(null);
+    form.resetFields();
+    form.setFieldsValue({
+      chargeMode: 'PAID',
+      hourlyPrice: 0,
+      freeMinutes: 0,
+      maxReserveHours: 4,
+      overtimePriceMultiplier: 1.5,
+      allowTempHold: false,
+      tempHoldLimitMinutes: 15,
+      tempHoldMaxCount: 3,
+    });
+    setModalOpen(true);
+  };
+
+  const openEdit = (policy: PricingPolicy) => {
+    setEditingPolicy(policy);
+    form.setFieldsValue({
+      ...policy,
+      validFrom: policy.validFrom ? dayjs(policy.validFrom) : undefined,
+      validTo: policy.validTo ? dayjs(policy.validTo) : undefined,
+      allowTempHold: !!policy.allowTempHold,
+    });
+    setModalOpen(true);
+  };
+
+  const handleSubmit = async () => {
     try {
-      if (enable) {
-        await adminApi.policy.enable(policyId);
-        message.success('策略已启用');
+      const values = await form.validateFields();
+      setSubmitting(true);
+      const payload = {
+        ...values,
+        allowTempHold: values.allowTempHold ? 1 : 0,
+        validFrom: values.validFrom?.format('YYYY-MM-DD HH:mm:ss'),
+        validTo: values.validTo?.format('YYYY-MM-DD HH:mm:ss'),
+      };
+
+      if (editingPolicy) {
+        await adminApi.policy.update(editingPolicy.policyId, payload);
+        message.success('策略更新成功');
       } else {
-        await adminApi.policy.disable(policyId);
-        message.success('策略已禁用');
+        await adminApi.policy.create(payload);
+        message.success('策略创建成功');
       }
-      await load();
+      setModalOpen(false);
+      fetchData();
     } catch (error) {
       logError(error);
     } finally {
-      setActionLoading(null);
+      setSubmitting(false);
     }
   };
 
-  const filtered = search
-    ? policies.filter((p) =>
-        p.policyName.toLowerCase().includes(search.toLowerCase()) ||
-        p.policyCode.toLowerCase().includes(search.toLowerCase())
-      )
-    : policies;
-
-  const stats = {
-    total: policies.length,
-    active: policies.filter((p) => p.isActive === 1).length,
-    free: policies.filter((p) => p.chargeMode === 'FREE').length,
-    paid: policies.filter((p) => p.chargeMode === 'PAID').length,
+  const handleDelete = async (policy: PricingPolicy) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定要删除策略「${policy.policyName}」吗？`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await adminApi.policy.delete(policy.policyId);
+          message.success('策略已删除');
+          fetchData();
+        } catch (error) {
+          logError(error);
+        }
+      },
+    });
   };
 
-  const columns: ColumnsType<PricingPolicy> = [
+  const columns = [
     {
-      title: '策略编码',
-      dataIndex: 'policyCode',
-      width: 130,
-      render: (v) => <Text strong style={{ fontFamily: 'monospace' }}>{v}</Text>,
+      title: '策略名称',
+      dataIndex: 'policyName',
+      key: 'policyName',
+      width: 180,
+      render: (v: string) => <Text strong>{v}</Text>,
     },
-    { title: '策略名称', dataIndex: 'policyName', width: 160 },
+    {
+      title: '编码',
+      dataIndex: 'policyCode',
+      key: 'policyCode',
+      width: 120,
+      render: (v: string) => <Tag>{v}</Tag>,
+    },
     {
       title: '计费模式',
       dataIndex: 'chargeMode',
+      key: 'chargeMode',
       width: 100,
-      render: (v) => (
-        <Tag color={v === 'FREE' ? 'green' : 'blue'} style={{ borderRadius: 20, border: 'none' }}>
-          {chargeModeMap[v] || v}
-        </Tag>
-      ),
+      render: (v: string) => <Tag color={chargeModeColorMap[v]}>{chargeModeLabelMap[v]}</Tag>,
     },
     {
-      title: '时价（元/h）',
+      title: '时租',
       dataIndex: 'hourlyPrice',
-      width: 110,
-      render: (v) => v != null ? <Text strong>¥{v}</Text> : '-',
+      key: 'hourlyPrice',
+      width: 90,
+      render: (v: number, r: PricingPolicy) => r.chargeMode === 'PAID' ? `¥${v.toFixed(2)}` : '-',
     },
     {
-      title: '免费分钟',
+      title: '免费时段',
       dataIndex: 'freeMinutes',
-      width: 100,
-      render: (v) => v || '-',
+      key: 'freeMinutes',
+      width: 90,
+      render: (v: number) => v > 0 ? `${v}分钟` : '无',
     },
     {
-      title: '押金（元）',
-      dataIndex: 'depositAmount',
-      width: 100,
-      render: (v) => v ? <Text>¥{v}</Text> : '-',
-    },
-    {
-      title: '暂离',
+      title: '可暂离',
       dataIndex: 'allowTempHold',
+      key: 'allowTempHold',
       width: 80,
-      render: (v) => v === 1 ? (
-        <Tag color="green" style={{ borderRadius: 20, border: 'none' }}>允许</Tag>
-      ) : (
-        <Tag color="default" style={{ borderRadius: 20, border: 'none' }}>禁止</Tag>
-      ),
+      render: (v: number) => v ? <Tag color="success">是</Tag> : <Tag>否</Tag>,
     },
     {
       title: '状态',
       dataIndex: 'isActive',
-      width: 90,
-      render: (v) => (
-        <Tag
-          icon={v === 1 ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-          color={v === 1 ? 'success' : 'default'}
-          style={{ borderRadius: 20, border: 'none' }}
-        >
-          {v === 1 ? '启用' : '禁用'}
-        </Tag>
-      ),
-    },
-    {
-      title: '备注',
-      dataIndex: 'remarks',
-      ellipsis: true,
-      render: (v) => v || '-',
+      key: 'isActive',
+      width: 80,
+      render: (v: number) => v ? <Tag color="success">启用</Tag> : <Tag>停用</Tag>,
     },
     {
       title: '操作',
+      key: 'actions',
       width: 120,
-      fixed: 'right',
-      render: (_, r) => {
-        const isActive = r.isActive === 1;
-        const isLoading = actionLoading === r.policyId;
-        return (
-          <Popconfirm
-            title={isActive ? '确认禁用此策略？' : '确认启用此策略？'}
-            onConfirm={() => togglePolicy(r.policyId, !isActive)}
-            okText="确认"
-            cancelText="取消"
-          >
-            <Button
-              type={isActive ? 'default' : 'primary'}
-              danger={isActive}
-              size="small"
-              icon={isActive ? <LockOutlined /> : <UnlockOutlined />}
-              loading={isLoading}
-              style={{ borderRadius: 8 }}
-            >
-              {isActive ? '禁用' : '启用'}
-            </Button>
-          </Popconfirm>
-        );
-      },
+      render: (_: unknown, record: PricingPolicy) => (
+        <AntSpace>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
+            编辑
+          </Button>
+          <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>
+            删除
+          </Button>
+        </AntSpace>
+      ),
     },
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>
-            <SettingOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
-            计费策略管理
+            <SafetyCertificateOutlined style={{ marginRight: 8, color: '#2563eb' }} />
+            策略管理
           </Title>
-          <Text type="secondary">管理空间计费规则，控制策略的启用与禁用</Text>
+          <Text type="secondary">管理计费策略、规则和费率</Text>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
-          刷新
-        </Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增策略</Button>
       </div>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {[
-          { label: '总策略数', value: stats.total, icon: <SettingOutlined />, color: '#6366f1' },
-          { label: '已启用', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
-          { label: '免费策略', value: stats.free, icon: <DollarOutlined />, color: '#3b82f6' },
-          { label: '付费策略', value: stats.paid, icon: <DollarOutlined />, color: '#f59e0b' },
-        ].map((s, i) => (
-          <Col xs={12} sm={6} key={i}>
-            <Card style={{ borderRadius: 14, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
-              <Statistic
-                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.icon} {s.label}</span>}
-                value={s.value}
-                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
-
-      <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: 0 } }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
-          <Input
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-            placeholder="搜索策略编码或名称..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            allowClear
-            style={{ maxWidth: 320, borderRadius: 10 }}
-          />
-        </div>
+      <Card style={{ borderRadius: 16, border: 'none' }}>
         <Table
+          dataSource={policies}
           columns={columns}
-          dataSource={filtered}
           rowKey="policyId"
           loading={loading}
-          pagination={{ pageSize: 10, showTotal: (t) => `共 ${t} 条策略`, showSizeChanger: false }}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: <Empty description="暂无策略数据" /> }}
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: '暂无策略数据' }}
         />
       </Card>
+
+      <Modal
+        title={editingPolicy ? '编辑策略' : '新增策略'}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={handleSubmit}
+        confirmLoading={submitting}
+        width={680}
+      >
+        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="policyCode" label="策略编码" rules={[{ required: true }]}>
+                <Input placeholder="如 FREE_STUDENT" disabled={!!editingPolicy} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="policyName" label="策略名称" rules={[{ required: true }]}>
+                <Input placeholder="如 学生免费策略" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="chargeMode" label="计费模式" rules={[{ required: true }]}>
+                <Select options={[
+                  { value: 'FREE', label: '免费' },
+                  { value: 'PAID', label: '付费' },
+                ]} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="hourlyPrice" label="时租价格（元）">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="freeMinutes" label="免费时段（分钟）">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="maxReserveHours" label="最长预约（小时）">
+                <InputNumber min={1} max={24} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="overtimePriceMultiplier" label="超时倍率">
+                <InputNumber min={1} max={10} precision={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={6}>
+              <Form.Item name="allowTempHold" label="允许暂离" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={9}>
+              <Form.Item name="tempHoldLimitMinutes" label="暂离时限（分钟）">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={9}>
+              <Form.Item name="tempHoldMaxCount" label="最大暂离次数">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="remarks" label="备注">
+            <Input.TextArea rows={2} placeholder="可选" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </motion.div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Card, Col, Empty, List, Row, Space, Spin, Tag, Tooltip, Typography } from 'antd';
 import {
   BarChartOutlined,
@@ -25,6 +25,7 @@ import {
   YAxis,
 } from 'recharts';
 import { reportApi } from '@/api';
+import heroImage from '@/assets/workspace-hero.svg';
 import { creditEventMap, creditEventColorMap } from '@/constants/domain';
 import type { DashboardVO, TopSpaceVO, CreditEventStatVO } from '@/types';
 import { logError } from '@/utils/logError';
@@ -41,7 +42,7 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 
-const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
+const PIE_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#0891b2', '#ec4899'];
 
 interface StatCardProps {
   title: string;
@@ -55,8 +56,9 @@ function StatCard({ title, value, icon, gradient, delay = 0 }: StatCardProps) {
   return (
     <motion.div variants={itemVariants} custom={delay}>
       <Card
+        className="metric-card"
         style={{
-          borderRadius: 16,
+          borderRadius: 12,
           border: 'none',
           overflow: 'hidden',
           position: 'relative',
@@ -71,7 +73,7 @@ function StatCard({ title, value, icon, gradient, delay = 0 }: StatCardProps) {
             top: 0,
             left: 0,
             right: 0,
-            height: 3,
+            height: 4,
             background: gradient,
           }}
         />
@@ -86,14 +88,14 @@ function StatCard({ title, value, icon, gradient, delay = 0 }: StatCardProps) {
             style={{
               width: 48,
               height: 48,
-              borderRadius: 14,
+              borderRadius: 12,
               background: gradient,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#fff',
               fontSize: 22,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              boxShadow: '0 12px 24px rgba(15, 23, 42, 0.16)',
             }}
           >
             {icon}
@@ -175,12 +177,29 @@ export default function DashboardPage() {
     }));
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible">
-      <div style={{ marginBottom: 28 }}>
-        <Title level={3} style={{ marginBottom: 4 }}>
-          数据概览
-        </Title>
-        <Text type="secondary">实时业务数据一览 · 自动更新</Text>
+    <motion.div className="dashboard-page" variants={containerVariants} initial="hidden" animate="visible">
+      <div className="dashboard-hero">
+        <div className="dashboard-hero-copy">
+          <Text className="dashboard-hero-label">Operations Console</Text>
+          <Title level={2} className="dashboard-hero-title">
+            空间预约运营驾驶舱
+          </Title>
+          <Text className="dashboard-hero-text">
+            聚合预约、签到、账单和信用事件，帮助管理员快速判断今日空间使用状态。
+          </Text>
+          <div className="dashboard-hero-actions">
+            <span>自动刷新报表</span>
+            <span>9 表业务模型</span>
+            <span>FastAPI + React</span>
+          </div>
+        </div>
+        <div className="dashboard-hero-visual">
+          <img src={heroImage} alt="空间预约运营看板" />
+          <div className="dashboard-hero-card">
+            <span>今日预约</span>
+            <strong>{dashboard?.todayReservationCount ?? 0}</strong>
+          </div>
+        </div>
       </div>
 
       <Row gutter={[20, 20]} style={{ marginBottom: 24 }}>
@@ -189,7 +208,7 @@ export default function DashboardPage() {
             title="今日预约数"
             value={dashboard?.todayReservationCount ?? 0}
             icon={<CalendarOutlined />}
-            gradient="linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)"
+            gradient="linear-gradient(135deg, #2563eb 0%, #0891b2 100%)"
             delay={0}
           />
         </Col>
@@ -246,7 +265,7 @@ export default function DashboardPage() {
             title="今日充值（元）"
             value={((dashboard as any)?.todayRechargeAmount ?? 0).toFixed(2)}
             icon={<BarChartOutlined />}
-            gradient="linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)"
+            gradient="linear-gradient(135deg, #0891b2 0%, #a78bfa 100%)"
             delay={6}
           />
         </Col>
@@ -300,7 +319,7 @@ export default function DashboardPage() {
             <Card
               title={
                 <Space>
-                  <BarChartOutlined style={{ color: '#6366f1' }} />
+                  <BarChartOutlined style={{ color: '#2563eb' }} />
                   <span style={{ fontWeight: 600 }}>信用事件分布</span>
                 </Space>
               }
@@ -410,7 +429,7 @@ export default function DashboardPage() {
             <Card
               title={
                 <Space>
-                  <BarChartOutlined style={{ color: '#6366f1' }} />
+                  <BarChartOutlined style={{ color: '#2563eb' }} />
                   <span style={{ fontWeight: 600 }}>信用事件明细</span>
                 </Space>
               }

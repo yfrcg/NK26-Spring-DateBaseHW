@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Button, Card, Col, Empty, message, Popconfirm, Row, Space as ASpace, Statistic, Table, Tag, Typography, Input } from 'antd';
 import {
   BankOutlined,
@@ -181,7 +181,7 @@ export default function AdminSpacesPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>
-            <BankOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            <BankOutlined style={{ marginRight: 8, color: '#2563eb' }} />
             空间管理
           </Title>
           <Text type="secondary">管理共享空间，设置启用/停用/维护状态</Text>
@@ -193,7 +193,7 @@ export default function AdminSpacesPage() {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {[
-          { label: '总空间数', value: stats.total, icon: <BankOutlined />, color: '#6366f1' },
+          { label: '总空间数', value: stats.total, icon: <BankOutlined />, color: '#2563eb' },
           { label: '可用', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
           { label: '维护中', value: stats.maintenance, icon: <ToolOutlined />, color: '#f59e0b' },
           { label: '已停用', value: stats.disabled, icon: <CloseCircleOutlined />, color: '#ef4444' },

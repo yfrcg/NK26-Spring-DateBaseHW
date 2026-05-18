@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
-  Badge,
   Button,
   Card,
   Col,
@@ -22,18 +21,16 @@ import {
   BankOutlined,
   BuildOutlined,
   CalendarOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   EnvironmentOutlined,
   HomeOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
-import { locationApi, reservationApi, runtimeApi, spaceApi } from '@/api';
-import { runtimeStatusMap, spaceStatusColorMap, spaceTypeMap, spaceTypeIcon } from '@/constants/domain';
+import { locationApi, reservationApi, spaceApi } from '@/api';
+import { spaceStatusColorMap, spaceTypeMap, spaceTypeIcon } from '@/constants/domain';
 import { useAuthStore } from '@/stores/authStore';
-import type { LocationTreeVO, ReservationCreateRequest, Space, SpaceRuntimeStatus } from '@/types';
+import type { LocationTreeVO, ReservationCreateRequest, Space } from '@/types';
 import { logError } from '@/utils/logError';
 
 const { Title, Text } = Typography;
@@ -46,12 +43,6 @@ const containerVariants = {
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-};
-
-const statusConfig: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
-  IDLE: { color: '#10b981', bg: '#ecfdf5', icon: <CheckCircleOutlined /> },
-  IN_USE: { color: '#6366f1', bg: '#eef2ff', icon: <ClockCircleOutlined /> },
-  TEMP_HOLD: { color: '#f59e0b', bg: '#fffbeb', icon: <ClockCircleOutlined /> },
 };
 
 function buildTreeData(nodes: LocationTreeVO[]): any[] {
@@ -67,7 +58,6 @@ export default function SpacesPage() {
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState<LocationTreeVO[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
-  const [runtimeMap, setRuntimeMap] = useState<Record<number, SpaceRuntimeStatus>>({});
   const [selectedLocationId, setSelectedLocationId] = useState<number | undefined>();
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
@@ -77,16 +67,12 @@ export default function SpacesPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [locRes, spaceRes, runtimeRes] = await Promise.all([
+        const [locRes, spaceRes] = await Promise.all([
           locationApi.getTree(),
           spaceApi.listActive(),
-          runtimeApi.listSpaces(),
         ]);
         setLocations(locRes.data.data);
         setSpaces(spaceRes.data.data);
-        const map: Record<number, SpaceRuntimeStatus> = {};
-        runtimeRes.data.data.forEach((r) => { map[r.spaceId] = r; });
-        setRuntimeMap(map);
       } catch (error) {
         logError(error);
       } finally {
@@ -141,11 +127,6 @@ export default function SpacesPage() {
       await reservationApi.create(req);
       message.success('预约成功！');
       setBookingModalOpen(false);
-      runtimeApi.listSpaces().then((res) => {
-        const map: Record<number, SpaceRuntimeStatus> = {};
-        res.data.data.forEach((r) => { map[r.spaceId] = r; });
-        setRuntimeMap(map);
-      });
     } catch (error) {
       logError(error);
     } finally {
@@ -163,10 +144,10 @@ export default function SpacesPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
+      <div className="spaces-toolbar">
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>
-            <HomeOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            <HomeOutlined style={{ marginRight: 8, color: '#2563eb' }} />
             空间浏览
           </Title>
           <Text type="secondary">查看所有可用空间，选择并预约</Text>
@@ -188,136 +169,97 @@ export default function SpacesPage() {
         </Card>
       ) : (
         <Row gutter={[20, 20]}>
-          {filteredSpaces.map((space, index) => {
-            const runtime = runtimeMap[space.spaceId];
-            const displayStatus = runtime?.currentStatus || 'IDLE';
-            const cfg = statusConfig[displayStatus] || statusConfig.IDLE;
-            const isIdle = displayStatus === 'IDLE';
-
-            return (
-              <Col xs={24} sm={12} lg={8} xl={6} key={space.spaceId}>
-                <motion.div variants={itemVariants} custom={index}>
-                  <Badge.Ribbon
-                    text={
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {cfg.icon}
-                        {runtimeStatusMap[displayStatus] || '空闲'}
-                      </span>
-                    }
-                    color={cfg.color}
-                  >
-                    <Card
+          {filteredSpaces.map((space, index) => (
+            <Col xs={24} sm={12} lg={8} xl={6} key={space.spaceId}>
+              <motion.div variants={itemVariants} custom={index}>
+                <Card
+                  className="space-card"
+                  style={{
+                    borderRadius: 12,
+                    border: 'none',
+                    height: '100%',
+                    background: '#fff',
+                    overflow: 'hidden',
+                  }}
+                  styles={{ body: { padding: '20px' } }}
+                  hoverable
+                >
+                  <div className="space-card-visual">
+                    <span>{space.spaceCode}</span>
+                    <strong>{space.capacity}</strong>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    <div
+                      className="space-card-icon"
                       style={{
-                        borderRadius: 16,
-                        border: 'none',
-                        height: '100%',
-                        background: '#fff',
-                        overflow: 'hidden',
+                        width: 44,
+                        height: 44,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 22,
+                        flexShrink: 0,
                       }}
-                      styles={{ body: { padding: '20px' } }}
-                      hoverable
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                        <div
-                          style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 12,
-                            background: isIdle ? '#eef2ff' : '#f1f5f9',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 22,
-                            color: isIdle ? '#4f46e5' : '#94a3b8',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {spaceTypeIcon[space.spaceType] || <BankOutlined />}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <Text strong style={{ fontSize: 15, display: 'block', lineHeight: 1.3 }}>
-                            {space.spaceName}
-                          </Text>
-                          <Tag color={spaceStatusColorMap[space.status]} style={{ marginTop: 4, borderRadius: 20, border: 'none' }}>
-                            {space.status === 'ACTIVE' ? '可用' : space.status === 'MAINTENANCE' ? '维护中' : '停用'}
-                          </Tag>
-                        </div>
-                      </div>
+                      {spaceTypeIcon[space.spaceType] || <BankOutlined />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <Text strong style={{ fontSize: 15, display: 'block', lineHeight: 1.3 }}>
+                        {space.spaceName}
+                      </Text>
+                      <Tag color={spaceStatusColorMap[space.status]} style={{ marginTop: 4, borderRadius: 20, border: 'none' }}>
+                        {space.status === 'ACTIVE' ? '可用' : space.status === 'MAINTENANCE' ? '维护中' : '停用'}
+                      </Tag>
+                    </div>
+                  </div>
 
-                      <div style={{ marginBottom: 16 }}>
-                        <AntSpace direction="vertical" size={6} style={{ width: '100%' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#64748b', fontSize: 13 }}>
-                            <BuildOutlined style={{ color: '#94a3b8' }} />
-                            <span>{spaceTypeMap[space.spaceType] || space.spaceType}</span>
-                            <span style={{ color: '#cbd5e1' }}>·</span>
-                            <TeamOutlined style={{ color: '#94a3b8' }} />
-                            <span>容量 {space.capacity}</span>
-                          </div>
-                          {space.equipmentDesc && (
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#64748b', fontSize: 13 }}>
-                              <EnvironmentOutlined style={{ color: '#94a3b8', marginTop: 3 }} />
-                              <span style={{ flex: 1 }}>{space.equipmentDesc}</span>
-                            </div>
-                          )}
-                        </AntSpace>
+                  <div style={{ marginBottom: 16 }}>
+                    <AntSpace direction="vertical" size={6} style={{ width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#64748b', fontSize: 13 }}>
+                        <BuildOutlined style={{ color: '#94a3b8' }} />
+                        <span>{spaceTypeMap[space.spaceType] || space.spaceType}</span>
+                        <span style={{ color: '#cbd5e1' }}>·</span>
+                        <TeamOutlined style={{ color: '#94a3b8' }} />
+                        <span>容量 {space.capacity}</span>
                       </div>
-
-                      {runtime && (
-                        <div
-                          style={{
-                            background: cfg.bg,
-                            borderRadius: 10,
-                            padding: '10px 12px',
-                            marginBottom: 14,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            fontSize: 12,
-                            color: cfg.color,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {cfg.icon}
-                          {runtimeStatusMap[displayStatus] || '空闲'}
-                          {runtime.statusSince && (
-                            <span style={{ marginLeft: 'auto', color: '#94a3b8', fontWeight: 400 }}>
-                              {dayjs(runtime.statusSince).format('HH:mm')}
-                            </span>
-                          )}
+                      {space.equipmentDesc && (
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#64748b', fontSize: 13 }}>
+                          <EnvironmentOutlined style={{ color: '#94a3b8', marginTop: 3 }} />
+                          <span style={{ flex: 1 }}>{space.equipmentDesc}</span>
                         </div>
                       )}
+                    </AntSpace>
+                  </div>
 
-                      <Button
-                        type="primary"
-                        block
-                        icon={<CalendarOutlined />}
-                        disabled={space.status !== 'ACTIVE' || !isIdle}
-                        onClick={() => openBooking(space)}
-                        style={{
-                          height: 40,
-                          borderRadius: 10,
-                          fontWeight: 500,
-                          background: isIdle && space.status === 'ACTIVE'
-                            ? 'linear-gradient(135deg, #4f46e5, #7c3aed)'
-                            : undefined,
-                          border: 'none',
-                        }}
-                      >
-                        {space.status !== 'ACTIVE' ? '暂不可用' : isIdle ? '立即预约' : '使用中'}
-                      </Button>
-                    </Card>
-                  </Badge.Ribbon>
-                </motion.div>
-              </Col>
-            );
-          })}
+                  <Button
+                    type="primary"
+                    block
+                    icon={<CalendarOutlined />}
+                    disabled={space.status !== 'ACTIVE'}
+                    onClick={() => openBooking(space)}
+                    style={{
+                      height: 40,
+                      borderRadius: 10,
+                      fontWeight: 500,
+                      background: space.status === 'ACTIVE'
+                        ? 'linear-gradient(135deg, #2563eb, #0891b2)'
+                        : undefined,
+                      border: 'none',
+                    }}
+                  >
+                    {space.status !== 'ACTIVE' ? '暂不可用' : '立即预约'}
+                  </Button>
+                </Card>
+              </motion.div>
+            </Col>
+          ))}
         </Row>
       )}
 
       <Modal
         title={
           <AntSpace>
-            <CalendarOutlined style={{ color: '#4f46e5' }} />
+            <CalendarOutlined style={{ color: '#2563eb' }} />
             <span>预约空间 · {selectedSpace?.spaceName}</span>
           </AntSpace>
         }
@@ -363,7 +305,7 @@ export default function SpacesPage() {
                 height: 44,
                 borderRadius: 10,
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                 border: 'none',
               }}
             >

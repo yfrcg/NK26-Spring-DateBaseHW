@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Button, Card, Col, Empty, message, Popconfirm, Row, Statistic, Table, Tag, Typography, Input } from 'antd';
 import {
   CheckCircleOutlined,
@@ -158,7 +158,7 @@ export default function AdminUsersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>
-            <TeamOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            <TeamOutlined style={{ marginRight: 8, color: '#2563eb' }} />
             用户管理
           </Title>
           <Text type="secondary">管理系统用户，查看状态并进行启用/停用操作</Text>
@@ -170,9 +170,9 @@ export default function AdminUsersPage() {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {[
-          { label: '总用户数', value: stats.total, icon: <TeamOutlined />, color: '#6366f1' },
+          { label: '总用户数', value: stats.total, icon: <TeamOutlined />, color: '#2563eb' },
           { label: '正常用户', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
-          { label: '管理员', value: stats.admin, icon: <UserSwitchOutlined />, color: '#8b5cf6' },
+          { label: '管理员', value: stats.admin, icon: <UserSwitchOutlined />, color: '#0891b2' },
           { label: '已停用', value: stats.suspended, icon: <CloseCircleOutlined />, color: '#ef4444' },
         ].map((s, i) => (
           <Col xs={12} sm={6} key={i}>

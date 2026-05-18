@@ -110,8 +110,8 @@ export default function MainLayout() {
           top: 0,
           bottom: 0,
           zIndex: 10,
-          background: 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 100%)',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+          background: 'linear-gradient(180deg, #07111f 0%, #0d2635 55%, #12343b 100%)',
+          boxShadow: '4px 0 28px rgba(15, 23, 42, 0.18)',
         }}
       >
         <div
@@ -129,13 +129,13 @@ export default function MainLayout() {
             style={{
               width: 36,
               height: 36,
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderRadius: 8,
+              background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+              boxShadow: '0 10px 22px rgba(8, 145, 178, 0.28)',
             }}
           >
             <CalendarOutlined style={{ fontSize: 18, color: '#fff' }} />
@@ -199,7 +199,7 @@ export default function MainLayout() {
                   size={36}
                   icon={<UserOutlined />}
                   style={{
-                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                     flexShrink: 0,
                   }}
                 />
@@ -242,17 +242,17 @@ export default function MainLayout() {
         <Header
           style={{
             padding: '0 24px',
-            background: 'rgba(255,255,255,0.8)',
+            background: 'rgba(255,255,255,0.88)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            boxShadow: '0 10px 28px rgba(15, 23, 42, 0.04)',
             position: 'sticky',
             top: 0,
             zIndex: 9,
-            borderBottom: '1px solid #f1f5f9',
+            borderBottom: '1px solid #e5edf5',
           }}
         >
           <div
@@ -296,7 +296,7 @@ export default function MainLayout() {
                     size={36}
                     icon={<UserOutlined />}
                     style={{
-                      background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                      background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                     }}
                   />
                 </Badge>
@@ -308,6 +308,7 @@ export default function MainLayout() {
         <Content
           style={{
             margin: 24,
+            position: 'relative',
             minHeight: 280,
           }}
         >

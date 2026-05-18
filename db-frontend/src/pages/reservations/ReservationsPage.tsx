@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Button, Card, Col, Empty, Input, message, Popconfirm, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import {
   CalendarOutlined,
@@ -271,7 +271,7 @@ export default function ReservationsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <Title level={3} style={{ marginBottom: 4 }}>
-            <CalendarOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+            <CalendarOutlined style={{ marginRight: 8, color: '#2563eb' }} />
             我的预约
           </Title>
           <Text type="secondary">管理您的预约，支持签到、暂离、签退操作</Text>
@@ -283,7 +283,7 @@ export default function ReservationsPage() {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {[
-          { label: '全部预约', value: stats.total, color: '#6366f1', bg: '#eef2ff' },
+          { label: '全部预约', value: stats.total, color: '#2563eb', bg: '#eef2ff' },
           { label: '待签到', value: stats.confirmed, color: '#f59e0b', bg: '#fffbeb' },
           { label: '使用中', value: stats.inUse, color: '#3b82f6', bg: '#eff6ff' },
           { label: '已完成', value: stats.finished, color: '#10b981', bg: '#ecfdf5' },

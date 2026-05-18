@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Avatar, Badge, Button, Card, Col, Descriptions, Divider, Form, Input, message, Modal, Row, Space, Tag, Typography } from 'antd';
 import {
   KeyOutlined,
@@ -52,7 +52,7 @@ export default function ProfilePage() {
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
       <div style={{ marginBottom: 28 }}>
         <Title level={3} style={{ marginBottom: 4 }}>
-          <UserOutlined style={{ marginRight: 8, color: '#4f46e5' }} />
+          <UserOutlined style={{ marginRight: 8, color: '#2563eb' }} />
           个人信息
         </Title>
         <Text type="secondary">查看和管理您的个人资料</Text>
@@ -76,7 +76,7 @@ export default function ProfilePage() {
                 left: 0,
                 right: 0,
                 height: 100,
-                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)',
               }}
             />
             <div style={{ position: 'relative', marginTop: -30 }}>
@@ -85,7 +85,7 @@ export default function ProfilePage() {
                   size={80}
                   icon={<UserOutlined />}
                   style={{
-                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                     border: '4px solid #fff',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                     fontSize: 36,
@@ -146,7 +146,7 @@ export default function ProfilePage() {
           <Card
             title={
               <Space>
-                <UserOutlined style={{ color: '#4f46e5' }} />
+                <UserOutlined style={{ color: '#2563eb' }} />
                 <span style={{ fontWeight: 600 }}>详细信息</span>
               </Space>
             }
@@ -205,7 +205,7 @@ export default function ProfilePage() {
       <Modal
         title={
           <Space>
-            <KeyOutlined style={{ color: '#4f46e5' }} />
+            <KeyOutlined style={{ color: '#2563eb' }} />
             <span>修改密码</span>
           </Space>
         }
@@ -263,7 +263,7 @@ export default function ProfilePage() {
                 height: 44,
                 borderRadius: 10,
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                 border: 'none',
               }}
             >

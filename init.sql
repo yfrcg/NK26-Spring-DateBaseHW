@@ -295,6 +295,64 @@ CREATE INDEX idx_locks_conflict ON space_time_locks(space_id, lock_status, lock_
 CREATE INDEX idx_locks_reservation ON space_time_locks(reservation_id, lock_status);
 
 -- =========================================================
+-- 预约插入触发器
+-- 插入前校验有效预约是否与现有时段锁冲突；
+-- 插入后为有效预约自动创建时段锁。
+-- =========================================================
+DROP TRIGGER IF EXISTS trg_reservations_before_insert_validate_lock;
+DROP TRIGGER IF EXISTS trg_reservations_after_insert_create_lock;
+
+DELIMITER $$
+
+CREATE TRIGGER trg_reservations_before_insert_validate_lock
+BEFORE INSERT ON reservations
+FOR EACH ROW
+BEGIN
+    IF NEW.end_time <= NEW.start_time THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '预约结束时间必须晚于开始时间';
+    END IF;
+
+    IF NEW.reservation_status IN ('PENDING', 'CONFIRMED', 'IN_USE')
+       AND EXISTS (
+           SELECT 1
+           FROM space_time_locks l
+           WHERE l.space_id = NEW.space_id
+             AND l.lock_status = 'ACTIVE'
+             AND l.lock_start_time < NEW.end_time
+             AND l.lock_end_time > NEW.start_time
+       ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '该空间在所选时间段已被预约';
+    END IF;
+END$$
+
+CREATE TRIGGER trg_reservations_after_insert_create_lock
+AFTER INSERT ON reservations
+FOR EACH ROW
+BEGIN
+    IF NEW.reservation_status IN ('PENDING', 'CONFIRMED', 'IN_USE') THEN
+        INSERT INTO space_time_locks (
+            space_id,
+            reservation_id,
+            lock_type,
+            lock_start_time,
+            lock_end_time,
+            lock_status
+        ) VALUES (
+            NEW.space_id,
+            NEW.reservation_id,
+            'RESERVATION',
+            NEW.start_time,
+            NEW.end_time,
+            'ACTIVE'
+        );
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- =========================================================
 -- 7. 使用会话表 usage_sessions
 -- =========================================================
 CREATE TABLE usage_sessions (
@@ -452,6 +510,82 @@ CREATE TABLE user_transactions (
 
 CREATE INDEX idx_txn_user_time ON user_transactions(user_id, created_at);
 CREATE INDEX idx_txn_category_type ON user_transactions(txn_category, txn_type);
+
+-- =========================================================
+-- 用户充值存储过程
+-- 更新用户余额与累计充值金额，并同步记录账户流水。
+-- =========================================================
+DROP PROCEDURE IF EXISTS sp_recharge_user_balance;
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_recharge_user_balance (
+    IN p_user_no VARCHAR(32),
+    IN p_amount DECIMAL(12,2)
+)
+BEGIN
+    DECLARE v_user_id BIGINT UNSIGNED;
+    DECLARE v_before_balance DECIMAL(12,2);
+    DECLARE v_after_balance DECIMAL(12,2);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_amount <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '充值金额必须大于0';
+    END IF;
+
+    SELECT user_id, balance
+    INTO v_user_id, v_before_balance
+    FROM users
+    WHERE user_no = p_user_no
+      AND is_deleted = 0
+    LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = '用户不存在';
+    END IF;
+
+    START TRANSACTION;
+
+    SET v_after_balance = v_before_balance + p_amount;
+
+    UPDATE users
+    SET balance = v_after_balance,
+        total_recharge = total_recharge + p_amount
+    WHERE user_id = v_user_id;
+
+    INSERT INTO user_transactions (
+        txn_no,
+        user_id,
+        txn_category,
+        txn_type,
+        direction,
+        amount,
+        before_balance,
+        after_balance,
+        remark
+    ) VALUES (
+        CONCAT('TXN', REPLACE(UUID(), '-', '')),
+        v_user_id,
+        'ACCOUNT',
+        'RECHARGE',
+        'IN',
+        p_amount,
+        v_before_balance,
+        v_after_balance,
+        '存储过程充值'
+    );
+
+    COMMIT;
+END$$
+
+DELIMITER ;
 
 -- =========================================================
 -- 视图

@@ -1,10 +1,19 @@
+import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Spin } from 'antd';
+import { Spin, message } from 'antd';
 import { useAuthStore } from '@/stores/authStore';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+}
+
+// Separate component to handle redirection and show toast safely in useEffect
+function AdminRedirect() {
+  useEffect(() => {
+    message.warning('权限不足');
+  }, []);
+  return <Navigate to="/dashboard" replace />;
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
@@ -13,7 +22,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
 
   if (!isReady) {
     return (
-      <div style={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="centered-loader">
         <Spin size="large" />
       </div>
     );
@@ -24,7 +33,7 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
   }
 
   if (requireAdmin && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <AdminRedirect />;
   }
 
   return <>{children}</>;

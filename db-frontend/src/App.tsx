@@ -68,26 +68,29 @@ export default function App() {
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: '#2563eb',
-          colorSuccess: '#059669',
-          colorWarning: '#d97706',
-          colorError: '#dc2626',
-          colorInfo: '#0891b2',
+          colorPrimary: '#0f9f8f',
+          colorSuccess: '#10b981',
+          colorWarning: '#f59e0b',
+          colorError: '#ef4444',
+          colorInfo: '#2563eb',
           borderRadius: 8,
           fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-          colorBgLayout: '#f6f8fb',
+          colorBgLayout: '#f5f7fb',
           colorBgContainer: '#ffffff',
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.06)',
+          colorText: '#172033',
+          colorTextSecondary: '#667085',
+          colorBorderSecondary: '#e6ebf2',
+          boxShadow: '0 14px 36px rgba(16, 24, 40, 0.08)',
         },
         components: {
           Card: {
             borderRadiusLG: 8,
-            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.06)',
+            boxShadow: '0 16px 38px rgba(16, 24, 40, 0.07)',
           },
           Table: {
-            headerBg: '#f3f6fa',
-            headerColor: '#334155',
-            rowHoverBg: '#eef6ff',
+            headerBg: '#f8fafc',
+            headerColor: '#475467',
+            rowHoverBg: '#f2fbf9',
           },
           Button: {
             borderRadius: 8,
@@ -95,6 +98,10 @@ export default function App() {
           },
           Menu: {
             itemBorderRadius: 8,
+            darkItemBg: 'transparent',
+            darkSubMenuItemBg: 'transparent',
+            darkItemSelectedBg: 'rgba(16, 185, 129, 0.18)',
+            darkItemHoverBg: 'rgba(255, 255, 255, 0.07)',
           },
         },
       }}

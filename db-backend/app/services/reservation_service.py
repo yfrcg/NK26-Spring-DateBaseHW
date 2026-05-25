@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.models.reservation import Reservation, SpaceTimeLock
@@ -45,19 +45,6 @@ def create_reservation(db: Session, user_id: int, space_id: int, start_time: str
     if duration_hours > policy.max_reserve_hours:
         raise ValueError(f"预约时长不能超过{policy.max_reserve_hours}小时")
 
-    conflict = (
-        db.query(SpaceTimeLock)
-        .filter(
-            SpaceTimeLock.space_id == space_id,
-            SpaceTimeLock.lock_status == "ACTIVE",
-            SpaceTimeLock.lock_start_time < end_dt,
-            SpaceTimeLock.lock_end_time > start_dt,
-        )
-        .first()
-    )
-    if conflict:
-        raise ValueError("该时间段已被预约")
-
     amount_estimated = 0.0
     if policy.charge_mode == "PAID":
         amount_estimated = float(policy.hourly_price) * duration_hours
@@ -79,19 +66,15 @@ def create_reservation(db: Session, user_id: int, space_id: int, start_time: str
         amount_estimated=Decimal(str(amount_estimated)),
     )
     db.add(reservation)
-    db.flush()
+    try:
+        db.flush()
+    except DBAPIError as error:
+        original_args = getattr(error.orig, "args", ())
+        if original_args and original_args[0] == 1644:
+            raise ValueError("预约失败：该空间在所选时间段已被预约") from error
+        raise
 
-    lock = SpaceTimeLock(
-        space_id=space_id,
-        reservation_id=reservation.reservation_id,
-        lock_type="RESERVATION",
-        lock_start_time=start_dt,
-        lock_end_time=end_dt,
-        lock_status="ACTIVE",
-    )
-    db.add(lock)
-    db.flush()
-
+    # An AFTER INSERT trigger creates the matching active space-time lock.
     return reservation
 
 

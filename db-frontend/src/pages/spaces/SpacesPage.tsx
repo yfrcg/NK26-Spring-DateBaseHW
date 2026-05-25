@@ -1,13 +1,13 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
   Button,
   Card,
   Col,
   DatePicker,
+  Descriptions,
   Empty,
   Form,
   InputNumber,
-  message,
   Modal,
   Row,
   Select,
@@ -16,36 +16,49 @@ import {
   Tag,
   TreeSelect,
   Typography,
+  message,
 } from 'antd';
 import {
   BankOutlined,
   BuildOutlined,
   CalendarOutlined,
   EnvironmentOutlined,
-  HomeOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
 import { locationApi, reservationApi, spaceApi } from '@/api';
-import { spaceStatusColorMap, spaceTypeMap, spaceTypeIcon } from '@/constants/domain';
+import { spaceStatusColorMap, spaceStatusMap, spaceTypeIcon, spaceTypeMap } from '@/constants/domain';
 import { useAuthStore } from '@/stores/authStore';
 import type { LocationTreeVO, ReservationCreateRequest, Space } from '@/types';
 import { logError } from '@/utils/logError';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.26 } },
 };
 
-function buildTreeData(nodes: LocationTreeVO[]): any[] {
+const spacePositions = ['0%', '25%', '50%', '75%', '100%'];
+const fallbackSpaceNames = ['研讨室A', '多功能厅', '创客空间', '路演厅', '自习室B区'];
+
+interface LocationTreeNode {
+  value: number;
+  title: string;
+  children?: LocationTreeNode[];
+}
+
+function isReadableText(value?: string) {
+  return !!value && !/[?]{2,}|�/.test(value);
+}
+
+function buildTreeData(nodes: LocationTreeVO[]): LocationTreeNode[] {
   return nodes.map((node) => ({
     value: node.locationId,
     title: node.locationName,
@@ -60,6 +73,7 @@ export default function SpacesPage() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<number | undefined>();
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [form] = Form.useForm();
@@ -67,10 +81,7 @@ export default function SpacesPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [locRes, spaceRes] = await Promise.all([
-          locationApi.getTree(),
-          spaceApi.listActive(),
-        ]);
+        const [locRes, spaceRes] = await Promise.all([locationApi.getTree(), spaceApi.listActive()]);
         setLocations(locRes.data.data);
         setSpaces(spaceRes.data.data);
       } catch (error) {
@@ -85,17 +96,17 @@ export default function SpacesPage() {
     if (!selectedLocationId) return spaces;
     const collectIds = (nodes: LocationTreeVO[]): number[] => {
       let ids: number[] = [];
-      for (const n of nodes) {
-        ids.push(n.locationId);
-        if (n.children) ids = ids.concat(collectIds(n.children));
+      for (const node of nodes) {
+        ids.push(node.locationId);
+        if (node.children) ids = ids.concat(collectIds(node.children));
       }
       return ids;
     };
     const findNode = (nodes: LocationTreeVO[]): LocationTreeVO | undefined => {
-      for (const n of nodes) {
-        if (n.locationId === selectedLocationId) return n;
-        if (n.children) {
-          const found = findNode(n.children);
+      for (const node of nodes) {
+        if (node.locationId === selectedLocationId) return node;
+        if (node.children) {
+          const found = findNode(node.children);
           if (found) return found;
         }
       }
@@ -103,13 +114,18 @@ export default function SpacesPage() {
     };
     const node = findNode(locations);
     const ids = node ? collectIds([node]) : [selectedLocationId];
-    return spaces.filter((s) => ids.includes(s.locationId));
+    return spaces.filter((space) => ids.includes(space.locationId));
   }, [spaces, selectedLocationId, locations]);
 
   const openBooking = (space: Space) => {
     setSelectedSpace(space);
     form.resetFields();
     setBookingModalOpen(true);
+  };
+
+  const openDetail = (space: Space) => {
+    setSelectedSpace(space);
+    setDetailModalOpen(true);
   };
 
   const handleBooking = async (values: { date: Dayjs; startTime: number; duration: number }) => {
@@ -125,7 +141,7 @@ export default function SpacesPage() {
         endTime: end.format('YYYY-MM-DDTHH:mm:ss'),
       };
       await reservationApi.create(req);
-      message.success('预约成功！');
+      message.success('预约成功');
       setBookingModalOpen(false);
     } catch (error) {
       logError(error);
@@ -146,14 +162,15 @@ export default function SpacesPage() {
     <motion.div variants={containerVariants} initial="hidden" animate="visible">
       <div className="spaces-toolbar">
         <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <HomeOutlined style={{ marginRight: 8, color: '#2563eb' }} />
+          <Title level={2} style={{ margin: 0 }}>
             空间浏览
           </Title>
-          <Text type="secondary">查看所有可用空间，选择并预约</Text>
+          <p style={{ margin: '4px 0 0', color: '#667085' }}>
+            按位置筛选可用空间，查看容量、设备和当前状态。
+          </p>
         </div>
         <TreeSelect
-          style={{ width: 260 }}
+          style={{ width: 280 }}
           placeholder="筛选位置"
           allowClear
           treeData={buildTreeData(locations)}
@@ -164,126 +181,130 @@ export default function SpacesPage() {
       </div>
 
       {filteredSpaces.length === 0 ? (
-        <Card style={{ borderRadius: 16, border: 'none' }}>
+        <Card>
           <Empty description="暂无可展示的空间数据" />
         </Card>
       ) : (
-        <Row gutter={[20, 20]}>
-          {filteredSpaces.map((space, index) => (
-            <Col xs={24} sm={12} lg={8} xl={6} key={space.spaceId}>
-              <motion.div variants={itemVariants} custom={index}>
-                <Card
-                  className="space-card"
-                  style={{
-                    borderRadius: 12,
-                    border: 'none',
-                    height: '100%',
-                    background: '#fff',
-                    overflow: 'hidden',
-                  }}
-                  styles={{ body: { padding: '20px' } }}
-                  hoverable
-                >
-                  <div className="space-card-visual">
-                    <span>{space.spaceCode}</span>
-                    <strong>{space.capacity}</strong>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                    <div
-                      className="space-card-icon"
-                      style={{
-                        width: 44,
-                        height: 44,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 22,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {spaceTypeIcon[space.spaceType] || <BankOutlined />}
+        <Row gutter={[18, 18]}>
+          {filteredSpaces.map((space, index) => {
+            const active = space.status === 'ACTIVE';
+            const style = { '--space-pos': spacePositions[index % spacePositions.length] } as CSSProperties;
+            const displayName = isReadableText(space.spaceName)
+              ? space.spaceName
+              : fallbackSpaceNames[index % fallbackSpaceNames.length];
+            const equipmentDesc = isReadableText(space.equipmentDesc) ? space.equipmentDesc : undefined;
+            return (
+              <Col xs={24} sm={12} lg={8} xl={6} key={space.spaceId}>
+                <motion.div variants={itemVariants}>
+                  <Card className="space-card" hoverable styles={{ body: { padding: 0 } }} style={style}>
+                    <div className="space-card-cover" />
+                    <div className="space-card-top">
+                      <Tag color={spaceStatusColorMap[space.status]}>{spaceStatusMap[space.status] || space.status}</Tag>
+                      <div className="space-capacity">{space.capacity}</div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <Text strong style={{ fontSize: 15, display: 'block', lineHeight: 1.3 }}>
-                        {space.spaceName}
-                      </Text>
-                      <Tag color={spaceStatusColorMap[space.status]} style={{ marginTop: 4, borderRadius: 20, border: 'none' }}>
-                        {space.status === 'ACTIVE' ? '可用' : space.status === 'MAINTENANCE' ? '维护中' : '停用'}
-                      </Tag>
-                    </div>
-                  </div>
-
-                  <div style={{ marginBottom: 16 }}>
-                    <AntSpace direction="vertical" size={6} style={{ width: '100%' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#64748b', fontSize: 13 }}>
-                        <BuildOutlined style={{ color: '#94a3b8' }} />
-                        <span>{spaceTypeMap[space.spaceType] || space.spaceType}</span>
-                        <span style={{ color: '#cbd5e1' }}>·</span>
-                        <TeamOutlined style={{ color: '#94a3b8' }} />
-                        <span>容量 {space.capacity}</span>
+                    <div className="space-card-main">
+                      <span className="space-card-meta">{space.spaceCode}</span>
+                      <strong className="space-card-title">{displayName}</strong>
+                      <AntSpace orientation="vertical" size={5} style={{ marginTop: 10 }}>
+                        <span className="space-card-meta">
+                          <BuildOutlined /> {spaceTypeMap[space.spaceType] || space.spaceType} · <TeamOutlined /> 容量 {space.capacity}
+                        </span>
+                        {equipmentDesc && (
+                          <span className="space-card-meta">
+                            <EnvironmentOutlined /> {equipmentDesc}
+                          </span>
+                        )}
+                      </AntSpace>
+                      <div className="space-actions">
+                        <Button
+                          icon={spaceTypeIcon[space.spaceType] || <BankOutlined />}
+                          onClick={() => openDetail(space)}
+                        >
+                          查看详情
+                        </Button>
+                        <Button
+                          type="primary"
+                          icon={<CalendarOutlined />}
+                          disabled={!active}
+                          onClick={() => openBooking(space)}
+                        >
+                          {active ? '立即预约' : '暂不可用'}
+                        </Button>
                       </div>
-                      {space.equipmentDesc && (
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, color: '#64748b', fontSize: 13 }}>
-                          <EnvironmentOutlined style={{ color: '#94a3b8', marginTop: 3 }} />
-                          <span style={{ flex: 1 }}>{space.equipmentDesc}</span>
-                        </div>
-                      )}
-                    </AntSpace>
-                  </div>
-
-                  <Button
-                    type="primary"
-                    block
-                    icon={<CalendarOutlined />}
-                    disabled={space.status !== 'ACTIVE'}
-                    onClick={() => openBooking(space)}
-                    style={{
-                      height: 40,
-                      borderRadius: 10,
-                      fontWeight: 500,
-                      background: space.status === 'ACTIVE'
-                        ? 'linear-gradient(135deg, #2563eb, #0891b2)'
-                        : undefined,
-                      border: 'none',
-                    }}
-                  >
-                    {space.status !== 'ACTIVE' ? '暂不可用' : '立即预约'}
-                  </Button>
-                </Card>
-              </motion.div>
-            </Col>
-          ))}
+                    </div>
+                  </Card>
+                </motion.div>
+              </Col>
+            );
+          })}
         </Row>
       )}
 
       <Modal
+        title="空间详情"
+        open={detailModalOpen}
+        onCancel={() => setDetailModalOpen(false)}
+        footer={
+          selectedSpace?.status === 'ACTIVE' ? (
+            <Button
+              type="primary"
+              icon={<CalendarOutlined />}
+              onClick={() => {
+                setDetailModalOpen(false);
+                openBooking(selectedSpace);
+              }}
+            >
+              立即预约
+            </Button>
+          ) : null
+        }
+        width={480}
+      >
+        {selectedSpace && (
+          <Descriptions column={1} size="small" bordered>
+            <Descriptions.Item label="空间名称">{selectedSpace.spaceName}</Descriptions.Item>
+            <Descriptions.Item label="空间编号">{selectedSpace.spaceCode}</Descriptions.Item>
+            <Descriptions.Item label="空间类型">
+              {spaceTypeMap[selectedSpace.spaceType] || selectedSpace.spaceType}
+            </Descriptions.Item>
+            <Descriptions.Item label="容量">{selectedSpace.capacity}</Descriptions.Item>
+            <Descriptions.Item label="状态">
+              <Tag color={spaceStatusColorMap[selectedSpace.status]}>
+                {spaceStatusMap[selectedSpace.status] || selectedSpace.status}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="设备">
+              {selectedSpace.equipmentDesc || '-'}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+      </Modal>
+
+      <Modal
         title={
           <AntSpace>
-            <CalendarOutlined style={{ color: '#2563eb' }} />
-            <span>预约空间 · {selectedSpace?.spaceName}</span>
+            <CalendarOutlined style={{ color: '#0f9f8f' }} />
+            <span>预约空间 · {isReadableText(selectedSpace?.spaceName) ? selectedSpace?.spaceName : '共享空间'}</span>
           </AntSpace>
         }
         open={bookingModalOpen}
         onCancel={() => setBookingModalOpen(false)}
         footer={null}
-        destroyOnClose
-        width={440}
+        destroyOnHidden
+        width={460}
       >
         <Form form={form} layout="vertical" onFinish={handleBooking} style={{ marginTop: 16 }}>
           <Form.Item name="date" label="预约日期" rules={[{ required: true, message: '请选择日期' }]}>
-            <DatePicker
-              style={{ width: '100%' }}
-              disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
-            />
+            <DatePicker style={{ width: '100%' }} disabledDate={(date) => date.isBefore(dayjs().startOf('day'))} />
           </Form.Item>
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="startTime" label="开始时间" rules={[{ required: true, message: '请选择开始时间' }]}>
                 <Select
                   placeholder="选择时间"
-                  options={Array.from({ length: 14 }, (_, i) => i + 8).map((h) => ({
-                    value: h,
-                    label: `${String(h).padStart(2, '0')}:00`,
+                  options={Array.from({ length: 14 }, (_, i) => i + 8).map((hour) => ({
+                    value: hour,
+                    label: `${String(hour).padStart(2, '0')}:00`,
                   }))}
                 />
               </Form.Item>
@@ -295,20 +316,7 @@ export default function SpacesPage() {
             </Col>
           </Row>
           <Form.Item style={{ marginBottom: 0 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={bookingLoading}
-              block
-              icon={<CalendarOutlined />}
-              style={{
-                height: 44,
-                borderRadius: 10,
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                border: 'none',
-              }}
-            >
+            <Button type="primary" htmlType="submit" loading={bookingLoading} block icon={<CalendarOutlined />}>
               确认预约
             </Button>
           </Form.Item>

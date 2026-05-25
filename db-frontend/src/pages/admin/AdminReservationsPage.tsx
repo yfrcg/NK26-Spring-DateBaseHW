@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react';
-import { Button, Card, Col, Empty, Input, message, Popconfirm, Row, Statistic, Table, Tag, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Card, Empty, Input, message, Popconfirm, Table, Tag, Typography } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -9,6 +9,7 @@ import {
   SearchOutlined,
   StopOutlined,
   ThunderboltOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import type { ColumnsType } from 'antd/es/table';
@@ -17,12 +18,15 @@ import { adminApi } from '@/api';
 import { reservationStatusMap, reservationStatusColorMap, chargeModeMap } from '@/constants/domain';
 import type { Reservation } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
+import StatsCardRow from '@/components/StatsCardRow';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const statusIcons: Record<string, React.ReactNode> = {
   CONFIRMED: <ClockCircleOutlined />,
-  IN_USE: <CheckCircleOutlined />,
+  IN_USE: <PlayCircleOutlined />,
   FINISHED: <CheckCircleOutlined />,
   CANCELLED: <CloseCircleOutlined />,
   NO_SHOW: <ThunderboltOutlined />,
@@ -80,12 +84,20 @@ export default function AdminReservationsPage() {
     noShow: reservations.filter((r) => r.reservationStatus === 'NO_SHOW').length,
   };
 
+  const statsCardData = [
+    { title: '总预约数', value: stats.total, icon: <FileTextOutlined />, color: 'var(--primary)' },
+    { title: '待签到', value: stats.confirmed, icon: <ClockCircleOutlined />, color: 'var(--amber)' },
+    { title: '使用中', value: stats.inUse, icon: <PlayCircleOutlined />, color: 'var(--blue)' },
+    { title: '已完成', value: stats.finished, icon: <CheckCircleOutlined />, color: 'var(--emerald)' },
+    { title: '未签到', value: stats.noShow, icon: <StopOutlined />, color: 'var(--danger)' },
+  ];
+
   const columns: ColumnsType<Reservation> = [
     {
       title: '预约编号',
       dataIndex: 'reservationNo',
       width: 180,
-      render: (v) => <Text copyable style={{ fontFamily: 'monospace', fontSize: 12 }}>{v}</Text>,
+      render: (v) => <Text copyable className="monospace-code">{v}</Text>,
     },
     { title: '用户ID', dataIndex: 'userId', width: 80 },
     { title: '空间ID', dataIndex: 'spaceId', width: 80 },
@@ -93,9 +105,9 @@ export default function AdminReservationsPage() {
       title: '预约时间',
       width: 220,
       render: (_, r) => (
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{dayjs(r.startTime).format('MM-DD HH:mm')}</div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>至 {dayjs(r.endTime).format('MM-DD HH:mm')}</div>
+        <div className="time-display-block">
+          <div className="time-start">{dayjs(r.startTime).format('MM-DD HH:mm')}</div>
+          <div className="time-end">至 {dayjs(r.endTime).format('MM-DD HH:mm')}</div>
         </div>
       ),
     },
@@ -104,7 +116,7 @@ export default function AdminReservationsPage() {
       dataIndex: 'reservationStatus',
       width: 120,
       render: (v) => (
-        <Tag icon={statusIcons[v]} color={reservationStatusColorMap[v]} style={{ borderRadius: 20, border: 'none' }}>
+        <Tag icon={statusIcons[v]} color={reservationStatusColorMap[v]} className="status-tag">
           {reservationStatusMap[v] || v}
         </Tag>
       ),
@@ -114,7 +126,7 @@ export default function AdminReservationsPage() {
       dataIndex: 'chargeModeSnapshot',
       width: 100,
       render: (v) => (
-        <Tag color={v === 'FREE' ? 'green' : 'blue'} style={{ borderRadius: 20, border: 'none' }}>
+        <Tag color={v === 'FREE' ? 'green' : 'blue'} className="status-tag">
           {chargeModeMap[v] || v}
         </Tag>
       ),
@@ -123,7 +135,7 @@ export default function AdminReservationsPage() {
       title: '预估金额',
       dataIndex: 'amountEstimated',
       width: 100,
-      render: (v) => <Text strong style={{ color: '#f59e0b' }}>¥{v?.toFixed(2) || '0.00'}</Text>,
+      render: (v) => <Text strong style={{ color: 'var(--amber)' }}>¥{v?.toFixed(2) || '0.00'}</Text>,
     },
     {
       title: '创建时间',
@@ -140,7 +152,7 @@ export default function AdminReservationsPage() {
         const isLoading = actionLoading === r.reservationId;
         return canCancel ? (
           <Popconfirm title="确认以管理员身份取消此预约？" onConfirm={() => cancelReservation(r.reservationId)} okText="确认" cancelText="取消">
-            <Button danger size="small" icon={<StopOutlined />} loading={isLoading} style={{ borderRadius: 8 }}>
+            <Button danger size="small" icon={<StopOutlined />} loading={isLoading}>
               取消
             </Button>
           </Popconfirm>
@@ -152,49 +164,33 @@ export default function AdminReservationsPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <FileTextOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-            预约管理
-          </Title>
-          <Text type="secondary">查看所有用户的预约，支持管理员取消操作</Text>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
-          刷新
-        </Button>
-      </div>
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="预约管理"
+        subtitle="查看所有用户的预约，支持管理员取消操作"
+        action={
+          <Button icon={<ReloadOutlined />} onClick={load} className="btn-refresh">
+            刷新
+          </Button>
+        }
+      />
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {[
-          { label: '总预约数', value: stats.total, color: '#2563eb' },
-          { label: '待签到', value: stats.confirmed, color: '#f59e0b' },
-          { label: '使用中', value: stats.inUse, color: '#3b82f6' },
-          { label: '已完成', value: stats.finished, color: '#10b981' },
-          { label: '未签到', value: stats.noShow, color: '#ef4444' },
-        ].map((s, i) => (
-          <Col xs={12} sm={i < 4 ? 6 : 12} lg={i < 4 ? 6 : 6} key={i}>
-            <Card style={{ borderRadius: 14, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
-              <Statistic
-                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.label}</span>}
-                value={s.value}
-                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <StatsCardRow stats={statsCardData} loading={loading} columns={{ xs: 12, sm: 8, lg: 4 }} />
 
-      <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: 0 } }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+      <Card className="admin-table-card">
+        <div className="admin-search-bar">
           <Input
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            prefix={<SearchOutlined style={{ color: 'var(--muted)' }} />}
             placeholder="搜索预约编号、用户ID或状态..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
-            style={{ maxWidth: 320, borderRadius: 10 }}
+            style={{ maxWidth: 320 }}
           />
         </div>
         <Table

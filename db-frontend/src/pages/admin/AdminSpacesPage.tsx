@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react';
-import { Button, Card, Col, Empty, message, Popconfirm, Row, Space as ASpace, Statistic, Table, Tag, Typography, Input } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Card, Empty, message, Popconfirm, Space as ASpace, Table, Tag, Typography, Input } from 'antd';
 import {
   BankOutlined,
   CheckCircleOutlined,
@@ -15,8 +15,11 @@ import { adminApi } from '@/api';
 import { spaceStatusMap, spaceStatusColorMap, spaceTypeMap } from '@/constants/domain';
 import type { Space } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
+import StatsCardRow from '@/components/StatsCardRow';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const statusIcons: Record<string, React.ReactNode> = {
   ACTIVE: <CheckCircleOutlined />,
@@ -82,12 +85,19 @@ export default function AdminSpacesPage() {
     maintenance: spaces.filter((s) => s.status === 'MAINTENANCE').length,
   };
 
+  const statsCardData = [
+    { title: '总空间数', value: stats.total, icon: <BankOutlined />, color: 'var(--primary)' },
+    { title: '可用空间', value: stats.active, icon: <CheckCircleOutlined />, color: 'var(--emerald)' },
+    { title: '维护中', value: stats.maintenance, icon: <ToolOutlined />, color: 'var(--amber)' },
+    { title: '已停用', value: stats.disabled, icon: <CloseCircleOutlined />, color: 'var(--danger)' },
+  ];
+
   const columns: ColumnsType<Space> = [
     {
       title: '空间编码',
       dataIndex: 'spaceCode',
       width: 120,
-      render: (v) => <Text strong style={{ fontFamily: 'monospace' }}>{v}</Text>,
+      render: (v) => <Text strong className="monospace-code">{v}</Text>,
     },
     { title: '空间名称', dataIndex: 'spaceName', width: 160 },
     {
@@ -95,7 +105,7 @@ export default function AdminSpacesPage() {
       dataIndex: 'spaceType',
       width: 110,
       render: (v) => (
-        <Tag color="geekblue" style={{ borderRadius: 20, border: 'none' }}>
+        <Tag color="geekblue" className="status-tag">
           {spaceTypeMap[v] || v}
         </Tag>
       ),
@@ -109,7 +119,7 @@ export default function AdminSpacesPage() {
         <Tag
           icon={statusIcons[v]}
           color={spaceStatusColorMap[v]}
-          style={{ borderRadius: 20, border: 'none' }}
+          className="status-tag"
         >
           {spaceStatusMap[v] || v}
         </Tag>
@@ -135,41 +145,41 @@ export default function AdminSpacesPage() {
         const isLoading = actionLoading === r.spaceId;
         return (
           <ASpace>
-            <Popconfirm title="确认启用此空间？" onConfirm={() => changeStatus(r.spaceId, 'activate')} okText="确认" cancelText="取消">
-              <Button
-                type="primary"
-                size="small"
-                icon={<CheckCircleOutlined />}
-                loading={isLoading}
-                disabled={r.status === 'ACTIVE'}
-                style={{ borderRadius: 8 }}
-              >
-                启用
-              </Button>
-            </Popconfirm>
-            <Popconfirm title="确认标记为维护中？" onConfirm={() => changeStatus(r.spaceId, 'maintenance')} okText="确认" cancelText="取消">
-              <Button
-                size="small"
-                icon={<ToolOutlined />}
-                loading={isLoading}
-                disabled={r.status === 'MAINTENANCE'}
-                style={{ borderRadius: 8 }}
-              >
-                维护
-              </Button>
-            </Popconfirm>
-            <Popconfirm title="确认停用此空间？" onConfirm={() => changeStatus(r.spaceId, 'disable')} okText="确认" cancelText="取消">
-              <Button
-                danger
-                size="small"
-                icon={<CloseCircleOutlined />}
-                loading={isLoading}
-                disabled={r.status === 'DISABLED'}
-                style={{ borderRadius: 8 }}
-              >
-                停用
-              </Button>
-            </Popconfirm>
+            {r.status !== 'ACTIVE' && (
+              <Popconfirm title="确认启用此空间？" onConfirm={() => changeStatus(r.spaceId, 'activate')} okText="确认" cancelText="取消">
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<CheckCircleOutlined />}
+                  loading={isLoading}
+                >
+                  启用
+                </Button>
+              </Popconfirm>
+            )}
+            {r.status !== 'MAINTENANCE' && (
+              <Popconfirm title="确认标记为维护中？" onConfirm={() => changeStatus(r.spaceId, 'maintenance')} okText="确认" cancelText="取消">
+                <Button
+                  size="small"
+                  icon={<ToolOutlined />}
+                  loading={isLoading}
+                >
+                  维护
+                </Button>
+              </Popconfirm>
+            )}
+            {r.status !== 'DISABLED' && (
+              <Popconfirm title="确认停用此空间？" onConfirm={() => changeStatus(r.spaceId, 'disable')} okText="确认" cancelText="取消">
+                <Button
+                  danger
+                  size="small"
+                  icon={<CloseCircleOutlined />}
+                  loading={isLoading}
+                >
+                  停用
+                </Button>
+              </Popconfirm>
+            )}
           </ASpace>
         );
       },
@@ -177,48 +187,33 @@ export default function AdminSpacesPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <BankOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-            空间管理
-          </Title>
-          <Text type="secondary">管理共享空间，设置启用/停用/维护状态</Text>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
-          刷新
-        </Button>
-      </div>
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="空间管理"
+        subtitle="管理共享空间，设置启用/停用/维护状态"
+        action={
+          <Button icon={<ReloadOutlined />} onClick={load} className="btn-refresh">
+            刷新
+          </Button>
+        }
+      />
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {[
-          { label: '总空间数', value: stats.total, icon: <BankOutlined />, color: '#2563eb' },
-          { label: '可用', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
-          { label: '维护中', value: stats.maintenance, icon: <ToolOutlined />, color: '#f59e0b' },
-          { label: '已停用', value: stats.disabled, icon: <CloseCircleOutlined />, color: '#ef4444' },
-        ].map((s, i) => (
-          <Col xs={12} sm={6} key={i}>
-            <Card style={{ borderRadius: 14, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
-              <Statistic
-                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.icon} {s.label}</span>}
-                value={s.value}
-                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <StatsCardRow stats={statsCardData} loading={loading} />
 
-      <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: 0 } }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+      <Card className="admin-table-card">
+        <div className="admin-search-bar">
           <Input
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            prefix={<SearchOutlined style={{ color: 'var(--muted)' }} />}
             placeholder="搜索空间编码、名称或类型..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
-            style={{ maxWidth: 320, borderRadius: 10 }}
+            style={{ maxWidth: 320 }}
           />
         </div>
         <Table

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Badge, Dropdown, Layout, Menu, Typography } from 'antd';
+import { Avatar, Badge, Button, Dropdown, Layout, Menu, Progress, Typography } from 'antd';
 import {
   BankOutlined,
   CalendarOutlined,
@@ -24,6 +24,19 @@ import { logError } from '@/utils/logError';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
+const routeTitleMap: Record<string, string> = {
+  '/dashboard': '工作台',
+  '/spaces': '空间浏览',
+  '/reservations': '我的预约',
+  '/account': '账户中心',
+  '/profile': '个人信息',
+  '/admin/users': '用户管理',
+  '/admin/spaces': '空间管理',
+  '/admin/reservations': '预约管理',
+  '/admin/policies': '计费策略',
+  '/admin/credits': '信用管理',
+};
+
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,7 +45,7 @@ export default function MainLayout() {
 
   const userMenuItems = useMemo(
     () => [
-      { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
+      { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
       { key: '/spaces', icon: <HomeOutlined />, label: '空间浏览' },
       { key: '/reservations', icon: <CalendarOutlined />, label: '我的预约' },
       { type: 'divider' as const },
@@ -44,8 +57,7 @@ export default function MainLayout() {
 
   const adminMenuItems = useMemo(
     () => [
-      { key: '/dashboard', icon: <DashboardOutlined />, label: '仪表盘' },
-      { type: 'divider' as const },
+      { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
       { key: '/admin/users', icon: <TeamOutlined />, label: '用户管理' },
       { key: '/admin/spaces', icon: <BankOutlined />, label: '空间管理' },
       { key: '/admin/reservations', icon: <FileTextOutlined />, label: '预约管理' },
@@ -67,9 +79,9 @@ export default function MainLayout() {
         onClick: () => navigate('/profile'),
       },
       {
-        key: 'settings',
+        key: 'account',
         icon: <SettingOutlined />,
-        label: '账户设置',
+        label: '账户中心',
         onClick: () => navigate('/account'),
       },
       { type: 'divider' as const },
@@ -92,78 +104,29 @@ export default function MainLayout() {
     ],
   };
 
+  const creditScore = user?.creditScore ?? 0;
+  const pageTitle = routeTitleMap[location.pathname] || '共享空间预约';
+
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className="app-shell">
       <Sider
+        className="app-sider"
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
         breakpoint="lg"
-        collapsedWidth={64}
-        width={240}
+        collapsedWidth={72}
+        width={228}
         trigger={null}
-        style={{
-          overflow: 'auto',
-          height: '100vh',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 10,
-          background: 'linear-gradient(180deg, #07111f 0%, #0d2635 55%, #12343b 100%)',
-          boxShadow: '4px 0 28px rgba(15, 23, 42, 0.18)',
-        }}
       >
-        <div
-          style={{
-            height: 72,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? '0' : '0 20px',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #2563eb 0%, #0891b2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 10px 22px rgba(8, 145, 178, 0.28)',
-            }}
-          >
-            <CalendarOutlined style={{ fontSize: 18, color: '#fff' }} />
+        <div className="brand-block">
+          <div className="brand-mark">
+            <CalendarOutlined />
           </div>
           {!collapsed && (
-            <div style={{ marginLeft: 12, overflow: 'hidden' }}>
-              <Text
-                strong
-                style={{
-                  color: '#fff',
-                  fontSize: 15,
-                  whiteSpace: 'nowrap',
-                  display: 'block',
-                  lineHeight: 1.3,
-                }}
-              >
-                共享空间预约
-              </Text>
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.45)',
-                  fontSize: 11,
-                  whiteSpace: 'nowrap',
-                  display: 'block',
-                }}
-              >
-                Space Booking System
-              </Text>
+            <div className="brand-copy">
+              <strong>共享空间预约</strong>
+              <span>Space Booking</span>
             </div>
           )}
         </div>
@@ -174,144 +137,67 @@ export default function MainLayout() {
           selectedKeys={[location.pathname]}
           items={isAdmin ? adminMenuItems : userMenuItems}
           onClick={({ key }) => navigate(key)}
-          style={{
-            marginTop: 8,
-            borderRight: 'none',
-          }}
+          className="app-menu"
         />
 
         {!collapsed && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              left: 16,
-              right: 16,
-              padding: '12px',
-              background: 'rgba(255,255,255,0.05)',
-              borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Badge dot status="success" offset={[-2, 28]}>
-                <Avatar
-                  size={36}
-                  icon={<UserOutlined />}
-                  style={{
-                    background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                    flexShrink: 0,
-                  }}
-                />
-              </Badge>
-              <div style={{ overflow: 'hidden' }}>
-                <Text
-                  style={{
-                    color: '#fff',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    display: 'block',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {user?.realName || '用户'}
-                </Text>
-                <Text
-                  style={{
-                    color: 'rgba(255,255,255,0.4)',
-                    fontSize: 11,
-                    display: 'block',
-                  }}
-                >
-                  {isAdmin ? '管理员' : user?.userType === 'STUDENT' ? '学生' : '教师'}
-                </Text>
-              </div>
+          <div className="sider-credit-card">
+            <div>
+              <span>信用分</span>
+              <strong>{creditScore}</strong>
             </div>
+            <Progress
+              percent={Math.min(100, creditScore)}
+              showInfo={false}
+              strokeColor="#10b981"
+              railColor="rgba(255,255,255,0.12)"
+              size="small"
+            />
+            <small>{creditScore >= 90 ? '良好，请继续保持' : '注意预约履约记录'}</small>
           </div>
         )}
       </Sider>
 
-      <Layout
-        style={{
-          marginLeft: collapsed ? 64 : 240,
-          transition: 'margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
-        <Header
-          style={{
-            padding: '0 24px',
-            background: 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            boxShadow: '0 10px 28px rgba(15, 23, 42, 0.04)',
-            position: 'sticky',
-            top: 0,
-            zIndex: 9,
-            borderBottom: '1px solid #e5edf5',
-          }}
-        >
-          <div
-            style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8, transition: 'background 0.15s' }}
-            onClick={() => setCollapsed(!collapsed)}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f1f5f9'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-          >
-            {collapsed ? (
-              <MenuUnfoldOutlined style={{ fontSize: 18, color: '#64748b' }} />
-            ) : (
-              <MenuFoldOutlined style={{ fontSize: 18, color: '#64748b' }} />
-            )}
+      <Layout className="app-main" style={{ marginLeft: collapsed ? 72 : 228 }}>
+        <Header className="app-header">
+          <div className="header-left">
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              className="icon-action"
+            />
+            <div>
+              <Text className="header-title">{pageTitle}</Text>
+              <Text className="header-subtitle">今日状态、预约流转和空间运营一屏掌握</Text>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ textAlign: 'right', marginRight: 4 }}>
-              <Text style={{ fontSize: 13, fontWeight: 500, display: 'block', color: '#1e293b' }}>
-                {user?.realName || '用户'}
-              </Text>
-              <Text style={{ fontSize: 11, color: '#94a3b8', display: 'block' }}>
-                {isAdmin ? '系统管理员' : `信用分 ${user?.creditScore ?? '-'}`}
-              </Text>
-            </div>
+          <div className="header-right">
+            <Badge count={isAdmin ? 3 : 0} size="small">
+              <Button
+                type="text"
+                aria-label="查看我的预约"
+                icon={<CalendarOutlined />}
+                className="icon-action"
+                onClick={() => navigate(isAdmin ? '/admin/reservations' : '/reservations')}
+              />
+            </Badge>
             <Dropdown menu={dropdownItems} placement="bottomRight" trigger={['click']}>
-              <div
-                style={{
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '4px 8px',
-                  borderRadius: 10,
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f1f5f9'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-              >
-                <Badge dot status="success" offset={[-2, 28]}>
-                  <Avatar
-                    size={36}
-                    icon={<UserOutlined />}
-                    style={{
-                      background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                    }}
-                  />
+              <button className="profile-chip" type="button">
+                <Badge dot status="success" offset={[-2, 30]}>
+                  <Avatar size={36} icon={<UserOutlined />} />
                 </Badge>
-              </div>
+                <span>
+                  <strong>{user?.realName || '用户'}</strong>
+                  <small>{isAdmin ? '系统管理员' : `信用分 ${creditScore}`}</small>
+                </span>
+              </button>
             </Dropdown>
           </div>
         </Header>
 
-        <Content
-          style={{
-            margin: 24,
-            position: 'relative',
-            minHeight: 280,
-          }}
-        >
+        <Content className="app-content">
           <div className="page-enter">
             <Outlet />
           </div>

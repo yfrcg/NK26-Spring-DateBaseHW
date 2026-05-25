@@ -46,6 +46,7 @@ def check_in(reservation_id: int, user: User = Depends(get_current_user), db: Se
         db.commit()
         return success(_session_to_dict(session))
     except (ValueError, PermissionError) as e:
+        db.rollback()
         return fail(400, str(e))
 
 
@@ -53,10 +54,11 @@ def check_in(reservation_id: int, user: User = Depends(get_current_user), db: Se
 def temp_hold(reservation_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         _check_owner_or_admin(db, user, reservation_id)
-        session = session_service.temp_hold(db, reservation_id)
+        session = session_service.start_hold(db, reservation_id, user_id=user.user_id)
         db.commit()
         return success(_session_to_dict(session))
     except (ValueError, PermissionError) as e:
+        db.rollback()
         return fail(400, str(e))
 
 
@@ -64,10 +66,11 @@ def temp_hold(reservation_id: int, user: User = Depends(get_current_user), db: S
 def resume(reservation_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         _check_owner_or_admin(db, user, reservation_id)
-        session = session_service.resume(db, reservation_id)
+        session = session_service.end_hold(db, reservation_id, user.user_id)
         db.commit()
         return success(_session_to_dict(session))
     except (ValueError, PermissionError) as e:
+        db.rollback()
         return fail(400, str(e))
 
 
@@ -79,6 +82,7 @@ def check_out(reservation_id: int, user: User = Depends(get_current_user), db: S
         db.commit()
         return success(_session_to_dict(session))
     except (ValueError, PermissionError) as e:
+        db.rollback()
         return fail(400, str(e))
 
 
@@ -88,7 +92,7 @@ def get_by_reservation(reservation_id: int, user: User = Depends(get_current_use
         _check_owner_or_admin(db, user, reservation_id)
     except (ValueError, PermissionError) as e:
         return fail(403, str(e))
-    session = session_service.get_session_by_reservation(db, reservation_id)
+    session = session_service.get_session_by_reservation_id(db, reservation_id)
     if not session:
-        return fail(404, "使用记录不存在")
+        return success(None)
     return success(_session_to_dict(session))

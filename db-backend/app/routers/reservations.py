@@ -46,6 +46,7 @@ def create_reservation(body: ReservationCreateRequest, user: User = Depends(get_
         db.commit()
         return success(_reservation_to_dict(reservation))
     except ValueError as e:
+        db.rollback()
         return fail(400, str(e))
 
 
@@ -65,4 +66,5 @@ def cancel(reservation_id: int, body: dict = None, user: User = Depends(get_curr
         db.commit()
         return success(_reservation_to_dict(reservation))
     except ValueError as e:
+        db.rollback()
         return fail(400, str(e))

@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react';
-import { Button, Card, Col, Empty, Input, message, Popconfirm, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
+import { Button, Card, Empty, Input, message, Popconfirm, Space, Table, Tag, Typography } from 'antd';
 import {
   CalendarOutlined,
   CheckCircleOutlined,
@@ -21,8 +21,11 @@ import { reservationStatusMap, reservationStatusColorMap, sessionStatusMap, sess
 import { useAuthStore } from '@/stores/authStore';
 import type { Reservation, UsageSession } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
+import StatsCardRow from '@/components/StatsCardRow';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const statusIcons: Record<string, React.ReactNode> = {
   CONFIRMED: <ClockCircleOutlined />,
@@ -40,7 +43,7 @@ export default function ReservationsPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [search, setSearch] = useState('');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -63,11 +66,11 @@ export default function ReservationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    load();
-  }, [user]);
+    void load();
+  }, [load]);
 
   const cancelReservation = async (id: number) => {
     setActionLoading(id);
@@ -85,7 +88,7 @@ export default function ReservationsPage() {
   const sessionAction = async (id: number, action: 'checkIn' | 'checkOut' | 'tempHold' | 'resume') => {
     setActionLoading(id);
     try {
-      const actionMap: Record<string, (rid: number) => Promise<any>> = {
+      const actionMap: Record<typeof action, typeof sessionApi.checkIn> = {
         checkIn: sessionApi.checkIn,
         checkOut: sessionApi.checkOut,
         tempHold: sessionApi.tempHold,
@@ -115,13 +118,12 @@ export default function ReservationsPage() {
       )
     : reservations;
 
-  const stats = {
-    total: reservations.length,
-    confirmed: reservations.filter((r) => r.reservationStatus === 'CONFIRMED').length,
-    inUse: reservations.filter((r) => r.reservationStatus === 'IN_USE').length,
-    finished: reservations.filter((r) => r.reservationStatus === 'FINISHED').length,
-    cancelled: reservations.filter((r) => r.reservationStatus === 'CANCELLED').length,
-  };
+  const stats = [
+    { title: '全部预约', value: reservations.length, icon: <CalendarOutlined />, color: 'var(--primary)' },
+    { title: '待签到', value: reservations.filter((r) => r.reservationStatus === 'CONFIRMED').length, icon: <ClockCircleOutlined />, color: 'var(--amber)' },
+    { title: '使用中', value: reservations.filter((r) => r.reservationStatus === 'IN_USE').length, icon: <PlayCircleOutlined />, color: 'var(--blue)' },
+    { title: '已完成', value: reservations.filter((r) => r.reservationStatus === 'FINISHED').length, icon: <CheckCircleOutlined />, color: 'var(--emerald)' },
+  ];
 
   const columns: ColumnsType<Reservation> = [
     {
@@ -129,7 +131,7 @@ export default function ReservationsPage() {
       dataIndex: 'reservationNo',
       width: 180,
       render: (v) => (
-        <Text copyable style={{ fontFamily: 'monospace', fontSize: 13 }}>
+        <Text copyable className="monospace-code">
           {v}
         </Text>
       ),
@@ -138,9 +140,9 @@ export default function ReservationsPage() {
       title: '预约时间',
       width: 220,
       render: (_, r) => (
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{dayjs(r.startTime).format('MM-DD HH:mm')}</div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>至 {dayjs(r.endTime).format('MM-DD HH:mm')}</div>
+        <div className="time-display-block">
+          <div className="time-start">{dayjs(r.startTime).format('MM-DD HH:mm')}</div>
+          <div className="time-end">至 {dayjs(r.endTime).format('MM-DD HH:mm')}</div>
         </div>
       ),
     },
@@ -152,7 +154,7 @@ export default function ReservationsPage() {
         <Tag
           icon={statusIcons[v]}
           color={reservationStatusColorMap[v]}
-          style={{ borderRadius: 20, border: 'none', fontWeight: 500 }}
+          className="status-tag"
         >
           {reservationStatusMap[v] || v}
         </Tag>
@@ -167,7 +169,7 @@ export default function ReservationsPage() {
         return (
           <Tag
             color={sessionStatusColorMap[s.sessionStatus]}
-            style={{ borderRadius: 20, border: 'none', fontWeight: 500 }}
+            className="status-tag"
           >
             {sessionStatusMap[s.sessionStatus] || s.sessionStatus}
           </Tag>
@@ -180,7 +182,7 @@ export default function ReservationsPage() {
       render: (_, r) => (
         <Tag
           color={r.chargeModeSnapshot === 'FREE' ? 'green' : 'blue'}
-          style={{ borderRadius: 20, border: 'none' }}
+          className="status-tag"
         >
           {r.chargeModeSnapshot === 'FREE' ? '免费' : `${r.hourlyPriceSnapshot}元/h`}
         </Tag>
@@ -191,7 +193,7 @@ export default function ReservationsPage() {
       dataIndex: 'amountEstimated',
       width: 100,
       render: (v) => (
-        <Text strong style={{ color: v > 0 ? '#f59e0b' : '#10b981' }}>
+        <Text strong className={v > 0 ? 'text-amount-pending' : 'text-amount-free'}>
           ¥{v?.toFixed(2) || '0.00'}
         </Text>
       ),
@@ -213,12 +215,11 @@ export default function ReservationsPage() {
                 icon={<LoginOutlined />}
                 loading={isLoading}
                 onClick={() => sessionAction(r.reservationId, 'checkIn')}
-                style={{ borderRadius: 8 }}
               >
                 签到
               </Button>
               <Popconfirm title="确认取消预约？" onConfirm={() => cancelReservation(r.reservationId)} okText="确认" cancelText="取消">
-                <Button danger size="small" icon={<CloseCircleOutlined />} style={{ borderRadius: 8 }}>
+                <Button danger size="small" icon={<CloseCircleOutlined />}>
                   取消
                 </Button>
               </Popconfirm>
@@ -235,7 +236,6 @@ export default function ReservationsPage() {
                   icon={<PauseCircleOutlined />}
                   loading={isLoading}
                   onClick={() => sessionAction(r.reservationId, 'tempHold')}
-                  style={{ borderRadius: 8 }}
                 >
                   暂离
                 </Button>
@@ -247,13 +247,12 @@ export default function ReservationsPage() {
                   icon={<PlayCircleOutlined />}
                   loading={isLoading}
                   onClick={() => sessionAction(r.reservationId, 'resume')}
-                  style={{ borderRadius: 8 }}
                 >
                   恢复
                 </Button>
               )}
               <Popconfirm title="确认签退？将自动结算费用。" onConfirm={() => sessionAction(r.reservationId, 'checkOut')} okText="确认" cancelText="取消">
-                <Button danger size="small" icon={<LogoutOutlined />} style={{ borderRadius: 8 }}>
+                <Button danger size="small" icon={<LogoutOutlined />}>
                   签退
                 </Button>
               </Popconfirm>
@@ -267,56 +266,36 @@ export default function ReservationsPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <CalendarOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-            我的预约
-          </Title>
-          <Text type="secondary">管理您的预约，支持签到、暂离、签退操作</Text>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
-          刷新
-        </Button>
-      </div>
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="我的预约"
+        subtitle="管理您的预约，支持签到、暂离、签退操作"
+        action={
+          <Button icon={<ReloadOutlined />} onClick={load} className="btn-refresh">
+            刷新
+          </Button>
+        }
+      />
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {[
-          { label: '全部预约', value: stats.total, color: '#2563eb', bg: '#eef2ff' },
-          { label: '待签到', value: stats.confirmed, color: '#f59e0b', bg: '#fffbeb' },
-          { label: '使用中', value: stats.inUse, color: '#3b82f6', bg: '#eff6ff' },
-          { label: '已完成', value: stats.finished, color: '#10b981', bg: '#ecfdf5' },
-        ].map((s, i) => (
-          <Col xs={12} sm={6} key={i}>
-            <Card
-              style={{ borderRadius: 14, border: 'none', background: '#fff' }}
-              styles={{ body: { padding: '18px 20px' } }}
-            >
-              <Statistic
-                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.label}</span>}
-                value={s.value}
-                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <StatsCardRow stats={stats} loading={loading} />
 
-      <Card
-        style={{ borderRadius: 16, border: 'none' }}
-        styles={{ body: { padding: 0 } }}
-      >
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+      <Card className="admin-table-card">
+        <div className="admin-search-bar">
           <Input
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            prefix={<SearchOutlined style={{ color: 'var(--muted)' }} />}
             placeholder="搜索预约编号或状态..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
-            style={{ maxWidth: 320, borderRadius: 10 }}
+            style={{ maxWidth: 320 }}
           />
         </div>
+
         <Table
           columns={columns}
           dataSource={filteredReservations}

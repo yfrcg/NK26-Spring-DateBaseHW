@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Card, Col, Empty, Form, Input, InputNumber, message, Modal, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
 import {
   EditOutlined,
@@ -16,8 +16,10 @@ import { userApi, creditApi } from '@/api';
 import { creditEventMap, creditEventColorMap } from '@/constants/domain';
 import type { User, CreditTransaction, CreditAdjustRequest } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function AdminCreditsPage() {
   const [loading, setLoading] = useState(true);
@@ -82,17 +84,22 @@ export default function AdminCreditsPage() {
   const selectedUser = users.find((u) => u.userId === selectedUserId);
 
   const userColumns: ColumnsType<User> = [
-    { title: '编号', dataIndex: 'userNo', width: 100, render: (v) => <Text strong style={{ fontFamily: 'monospace' }}>{v}</Text> },
+    { title: '编号', dataIndex: 'userNo', width: 100, render: (v) => <Text strong className="monospace-code">{v}</Text> },
     { title: '姓名', dataIndex: 'realName', width: 90 },
     {
       title: '信用分',
       dataIndex: 'creditScore',
       width: 90,
-      render: (v) => (
-        <Text strong style={{ color: v >= 80 ? '#10b981' : v >= 60 ? '#f59e0b' : '#ef4444' }}>
-          {v ?? '-'}
-        </Text>
-      ),
+      render: (v) => {
+        const isExcellent = (v ?? 0) >= 80;
+        const isFair = (v ?? 0) >= 60;
+        const color = isExcellent ? 'var(--emerald)' : isFair ? 'var(--amber)' : 'var(--danger)';
+        return (
+          <Text strong style={{ color }}>
+            {v ?? '-'}
+          </Text>
+        );
+      },
     },
     {
       title: '操作',
@@ -103,7 +110,6 @@ export default function AdminCreditsPage() {
           size="small"
           icon={<FileTextOutlined />}
           onClick={() => setSelectedUserId(r.userId)}
-          style={{ borderRadius: 8 }}
         >
           查看
         </Button>
@@ -117,7 +123,7 @@ export default function AdminCreditsPage() {
       dataIndex: 'txnType',
       width: 130,
       render: (v) => (
-        <Tag color={creditEventColorMap[v] || 'default'} style={{ borderRadius: 20, border: 'none', fontWeight: 500 }}>
+        <Tag color={creditEventColorMap[v] || 'default'} className="status-tag">
           {creditEventMap[v] || v}
         </Tag>
       ),
@@ -127,7 +133,7 @@ export default function AdminCreditsPage() {
       dataIndex: 'creditDelta',
       width: 100,
       render: (v) => (
-        <Text strong style={{ color: (v ?? 0) > 0 ? '#10b981' : '#ef4444', fontSize: 14 }}>
+        <Text strong style={{ color: (v ?? 0) > 0 ? 'var(--emerald)' : 'var(--danger)', fontSize: 14 }}>
           {v != null && v > 0 ? '+' : ''}{v ?? '-'}
         </Text>
       ),
@@ -154,46 +160,44 @@ export default function AdminCreditsPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <SafetyCertificateOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-            信用分管理
-          </Title>
-          <Text type="secondary">查看用户信用记录，手动调整信用分</Text>
-        </div>
-        <Space>
-          {selectedUserId && (
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => setAdjustModalOpen(true)}
-              style={{
-                borderRadius: 8,
-                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                border: 'none',
-              }}
-            >
-              调整信用分
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="信用分管理"
+        subtitle="查看用户信用记录，手动调整信用分"
+        action={
+          <Space>
+            {selectedUserId && (
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => setAdjustModalOpen(true)}
+                className="primary-gradient-btn"
+              >
+                调整信用分
+              </Button>
+            )}
+            <Button icon={<ReloadOutlined />} onClick={loadUsers} className="btn-refresh">
+              刷新
             </Button>
-          )}
-          <Button icon={<ReloadOutlined />} onClick={loadUsers} style={{ borderRadius: 8 }}>
-            刷新
-          </Button>
-        </Space>
-      </div>
+          </Space>
+        }
+      />
 
       <Row gutter={[20, 20]}>
         <Col xs={24} lg={10}>
           <Card
             title={
               <Space>
-                <UserOutlined style={{ color: '#2563eb' }} />
+                <UserOutlined style={{ color: 'var(--primary)' }} />
                 <span style={{ fontWeight: 600 }}>用户列表</span>
               </Space>
             }
-            style={{ borderRadius: 16, border: 'none' }}
+            className="admin-table-card"
             styles={{ body: { padding: 0 } }}
           >
             <Table
@@ -205,10 +209,8 @@ export default function AdminCreditsPage() {
               size="small"
               onRow={(r) => ({
                 onClick: () => setSelectedUserId(r.userId),
-                style: {
-                  cursor: 'pointer',
-                  background: selectedUserId === r.userId ? '#eef2ff' : undefined,
-                },
+                className: selectedUserId === r.userId ? 'selected-row' : '',
+                style: { cursor: 'pointer' }
               })}
             />
           </Card>
@@ -223,24 +225,13 @@ export default function AdminCreditsPage() {
               transition={{ duration: 0.25 }}
             >
               <Card
-                style={{ borderRadius: 16, border: 'none', marginBottom: 20 }}
+                className="admin-table-card"
+                style={{ marginBottom: 20 }}
                 styles={{ body: { padding: '20px 24px' } }}
               >
                 <Row gutter={16} align="middle">
                   <Col>
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 14,
-                        background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontSize: 20,
-                      }}
-                    >
+                    <div className="credit-user-avatar">
                       <UserOutlined />
                     </div>
                   </Col>
@@ -250,13 +241,13 @@ export default function AdminCreditsPage() {
                   </Col>
                   <Col>
                     <Statistic
-                      title={<span style={{ fontSize: 11, color: '#64748b' }}>信用分</span>}
+                      title={<span style={{ fontSize: 11, color: 'var(--muted)' }}>信用分</span>}
                       value={selectedUser.creditScore ?? 0}
                       suffix="/ 100"
                       valueStyle={{
                         fontSize: 28,
                         fontWeight: 700,
-                        color: (selectedUser.creditScore ?? 0) >= 80 ? '#10b981' : (selectedUser.creditScore ?? 0) >= 60 ? '#f59e0b' : '#ef4444',
+                        color: (selectedUser.creditScore ?? 0) >= 80 ? 'var(--emerald)' : (selectedUser.creditScore ?? 0) >= 60 ? 'var(--amber)' : 'var(--danger)',
                       }}
                     />
                   </Col>
@@ -266,11 +257,11 @@ export default function AdminCreditsPage() {
               <Card
                 title={
                   <Space>
-                    <HistoryOutlined style={{ color: '#2563eb' }} />
+                    <HistoryOutlined style={{ color: 'var(--primary)' }} />
                     <span style={{ fontWeight: 600 }}>信用变动记录</span>
                   </Space>
                 }
-                style={{ borderRadius: 16, border: 'none' }}
+                className="admin-table-card"
                 styles={{ body: { padding: 0 } }}
               >
                 <Table
@@ -285,7 +276,7 @@ export default function AdminCreditsPage() {
               </Card>
             </motion.div>
           ) : (
-            <Card style={{ borderRadius: 16, border: 'none', height: 400 }} styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center' } }}>
+            <Card className="admin-table-card" style={{ height: 400 }} styles={{ body: { display: 'flex', alignItems: 'center', justifyContent: 'center' } }}>
               <Empty description="请从左侧选择一个用户" />
             </Card>
           )}
@@ -295,7 +286,7 @@ export default function AdminCreditsPage() {
       <Modal
         title={
           <Space>
-            <EditOutlined style={{ color: '#2563eb' }} />
+            <EditOutlined style={{ color: 'var(--primary)' }} />
             <span>调整信用分 · {selectedUser?.realName}</span>
           </Space>
         }
@@ -305,15 +296,15 @@ export default function AdminCreditsPage() {
         destroyOnClose
         width={440}
       >
-        <div style={{ margin: '12px 0 16px', padding: '12px 16px', background: '#f8fafc', borderRadius: 10, fontSize: 13, color: '#64748b' }}>
-          当前信用分：<Text strong style={{ color: (selectedUser?.creditScore ?? 0) >= 80 ? '#10b981' : '#f59e0b', fontSize: 18 }}>
+        <div style={{ margin: '12px 0 16px', padding: '12px 16px', background: 'var(--surface-soft)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--muted)' }}>
+          当前信用分：<Text strong style={{ color: (selectedUser?.creditScore ?? 0) >= 80 ? 'var(--emerald)' : 'var(--amber)', fontSize: 18 }}>
             {selectedUser?.creditScore ?? 0}
           </Text> / 100
         </div>
         <Form form={form} layout="vertical" onFinish={handleAdjust}>
           <Form.Item name="changeScore" label="变动分值" rules={[{ required: true, message: '请输入变动分值' }]}>
             <InputNumber
-              style={{ width: '100%' }}
+              style={{ width: '100%', borderRadius: 'var(--radius-sm)' }}
               min={-100}
               max={100}
               addonBefore={<PlusOutlined />}
@@ -321,7 +312,7 @@ export default function AdminCreditsPage() {
             />
           </Form.Item>
           <Form.Item name="reason" label="原因说明" rules={[{ required: true, message: '请输入原因' }]}>
-            <Input.TextArea rows={3} placeholder="请说明调整原因" />
+            <Input.TextArea rows={3} placeholder="请说明调整原因" style={{ borderRadius: 'var(--radius-sm)' }} />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0 }}>
             <Button
@@ -330,13 +321,8 @@ export default function AdminCreditsPage() {
               loading={adjustLoading}
               block
               icon={<SafetyCertificateOutlined />}
-              style={{
-                height: 44,
-                borderRadius: 10,
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #2563eb, #0891b2)',
-                border: 'none',
-              }}
+              className="primary-gradient-btn"
+              style={{ height: 44 }}
             >
               确认调整
             </Button>

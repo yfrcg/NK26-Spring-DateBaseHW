@@ -1,14 +1,11 @@
-﻿import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Button,
   Card,
-  Col,
   InputNumber,
   message,
   Modal,
-  Row,
   Space as AntSpace,
-  Statistic,
   Table,
   Tag,
   Typography,
@@ -26,8 +23,11 @@ import { accountApi } from '@/api';
 import { useAuthStore } from '@/stores/authStore';
 import type { Transaction, UserAccount } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
+import StatsCardRow from '@/components/StatsCardRow';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const txnTypeMap: Record<string, string> = {
   RECHARGE: '充值',
@@ -49,7 +49,7 @@ export default function AccountPage() {
   const [rechargeAmount, setRechargeAmount] = useState<number>(100);
   const [recharging, setRecharging] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -64,11 +64,11 @@ export default function AccountPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchData();
-  }, [user]);
+    void fetchData();
+  }, [fetchData]);
 
   const handleRecharge = async () => {
     if (!user || !rechargeAmount || rechargeAmount <= 0) return;
@@ -77,7 +77,7 @@ export default function AccountPage() {
       await accountApi.recharge(user.userId, { amount: rechargeAmount });
       message.success(`充值成功！已充入 ¥${rechargeAmount.toFixed(2)}`);
       setRechargeOpen(false);
-      fetchData();
+      void fetchData();
     } catch (error) {
       logError(error);
     } finally {
@@ -98,20 +98,20 @@ export default function AccountPage() {
       dataIndex: 'txnType',
       key: 'txnType',
       width: 120,
-      render: (v: string) => <Tag>{txnTypeMap[v] || v}</Tag>,
+      render: (v: string) => <Tag className="status-tag">{txnTypeMap[v] || v}</Tag>,
     },
     {
       title: '方向',
       dataIndex: 'direction',
       key: 'direction',
-      width: 80,
+      width: 120,
       render: (v: string) =>
         v === 'IN' ? (
-          <Tag icon={<ArrowUpOutlined />} color="success">收入</Tag>
+          <Tag icon={<ArrowUpOutlined />} color="success" className="status-tag">收入</Tag>
         ) : v === 'OUT' ? (
-          <Tag icon={<ArrowDownOutlined />} color="error">支出</Tag>
+          <Tag icon={<ArrowDownOutlined />} color="error" className="status-tag">支出</Tag>
         ) : (
-          <Tag>—</Tag>
+          <Tag className="status-tag">—</Tag>
         ),
     },
     {
@@ -121,11 +121,11 @@ export default function AccountPage() {
       width: 120,
       render: (_: number | undefined, r: Transaction) =>
         r.amount != null ? (
-          <Text style={{ color: r.direction === 'IN' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+          <Text className={r.direction === 'IN' ? 'amount-in' : 'amount-out'}>
             {r.direction === 'IN' ? '+' : '-'}¥{r.amount.toFixed(2)}
           </Text>
         ) : r.creditDelta != null ? (
-          <Text style={{ color: r.direction === 'IN' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+          <Text className={r.direction === 'IN' ? 'amount-in' : 'amount-out'}>
             {r.direction === 'IN' ? '+' : ''}{r.creditDelta}分
           </Text>
         ) : (
@@ -140,79 +140,47 @@ export default function AccountPage() {
     },
   ];
 
-  return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-      <div style={{ marginBottom: 28 }}>
-        <Title level={3} style={{ marginBottom: 4 }}>
-          <WalletOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-          我的钱包
-        </Title>
-        <Text type="secondary">查看账户余额、充值及交易明细</Text>
-      </div>
+  const stats = [
+    { title: '可用余额', value: account?.balance ?? 0, icon: <WalletOutlined />, color: 'var(--primary)', prefix: '¥' },
+    { title: '累计充值', value: account?.totalRecharge ?? 0, icon: <ArrowUpOutlined />, color: 'var(--emerald)', prefix: '¥' },
+    { title: '累计消费', value: account?.totalSpend ?? 0, icon: <ArrowDownOutlined />, color: 'var(--amber)', prefix: '¥' },
+    { title: '欠费金额', value: account?.arrearsAmount ?? 0, icon: <DollarOutlined />, color: 'var(--danger)', prefix: '¥' },
+  ];
 
-      <Row gutter={20} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
-            <Statistic
-              title="可用余额"
-              value={account?.balance ?? 0}
-              precision={2}
-              prefix="¥"
-              valueStyle={{ color: '#2563eb', fontWeight: 700, fontSize: 28 }}
-              suffix={
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<PlusOutlined />}
-                  onClick={() => setRechargeOpen(true)}
-                  style={{ marginLeft: 8, borderRadius: 8 }}
-                >
-                  充值
-                </Button>
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
-            <Statistic
-              title="累计充值"
-              value={account?.totalRecharge ?? 0}
-              precision={2}
-              prefix="¥"
-              valueStyle={{ color: '#10b981', fontWeight: 600 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
-            <Statistic
-              title="累计消费"
-              value={account?.totalSpend ?? 0}
-              precision={2}
-              prefix="¥"
-              valueStyle={{ color: '#f59e0b', fontWeight: 600 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: '24px' } }}>
-            <Statistic
-              title="欠费金额"
-              value={account?.arrearsAmount ?? 0}
-              precision={2}
-              prefix="¥"
-              valueStyle={{ color: '#ef4444', fontWeight: 600 }}
-            />
-          </Card>
-        </Col>
-      </Row>
+  return (
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="我的钱包"
+        subtitle="查看账户余额、充值及交易明细"
+        action={
+          <AntSpace>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setRechargeOpen(true)}
+              className="primary-gradient-btn"
+            >
+              账户充值
+            </Button>
+            <Button onClick={fetchData} className="btn-refresh">
+              刷新
+            </Button>
+          </AntSpace>
+        }
+      />
+
+      <StatsCardRow stats={stats} loading={loading} />
 
       <Card
-        style={{ borderRadius: 16, border: 'none' }}
+        className="admin-table-card"
         title={
           <AntSpace>
-            <AccountBookOutlined style={{ color: '#2563eb' }} />
+            <AccountBookOutlined style={{ color: 'var(--primary)' }} />
             <span style={{ fontWeight: 600 }}>交易明细</span>
           </AntSpace>
         }
@@ -230,7 +198,7 @@ export default function AccountPage() {
       <Modal
         title={
           <AntSpace>
-            <DollarOutlined style={{ color: '#2563eb' }} />
+            <DollarOutlined style={{ color: 'var(--primary)' }} />
             <span>账户充值</span>
           </AntSpace>
         }
@@ -244,7 +212,7 @@ export default function AccountPage() {
         <div style={{ padding: '16px 0' }}>
           <Text style={{ display: 'block', marginBottom: 12 }}>请输入充值金额：</Text>
           <InputNumber
-            style={{ width: '100%' }}
+            style={{ width: '100%', borderRadius: 'var(--radius)' }}
             min={1}
             max={10000}
             precision={2}
@@ -253,9 +221,14 @@ export default function AccountPage() {
             prefix="¥"
             size="large"
           />
-          <AntSpace style={{ marginTop: 12 }}>
+          <AntSpace style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap' }}>
             {[50, 100, 200, 500].map((v) => (
-              <Button key={v} onClick={() => setRechargeAmount(v)}>
+              <Button
+                key={v}
+                type={rechargeAmount === v ? 'primary' : 'default'}
+                onClick={() => setRechargeAmount(v)}
+                style={{ borderRadius: 'var(--radius-pill)' }}
+              >
                 ¥{v}
               </Button>
             ))}

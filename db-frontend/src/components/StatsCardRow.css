@@ -1,0 +1,73 @@
+.stats-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+  cursor: default;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1);
+}
+
+.stats-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.stats-card-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  font-size: 20px;
+}
+
+.stats-card-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.stats-card-value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stats-card-prefix,
+.stats-card-suffix {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.stats-card-prefix {
+  margin-right: 2px;
+}
+
+.stats-card-suffix {
+  margin-left: 2px;
+}
+
+.stats-card-skeleton {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}

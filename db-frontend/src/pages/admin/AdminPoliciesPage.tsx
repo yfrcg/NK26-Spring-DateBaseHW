@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -20,7 +20,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
-  SafetyCertificateOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
@@ -28,8 +28,10 @@ import { adminApi } from '@/api';
 import { chargeModeColorMap, chargeModeLabelMap } from '@/constants/domain';
 import type { PricingPolicy } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function AdminPoliciesPage() {
   const [policies, setPolicies] = useState<PricingPolicy[]>([]);
@@ -37,6 +39,7 @@ export default function AdminPoliciesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PricingPolicy | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
   const [form] = Form.useForm();
 
   const fetchData = async () => {
@@ -128,6 +131,14 @@ export default function AdminPoliciesPage() {
     });
   };
 
+  const filtered = search
+    ? policies.filter((p) =>
+        p.policyName.toLowerCase().includes(search.toLowerCase()) ||
+        p.policyCode.toLowerCase().includes(search.toLowerCase()) ||
+        (chargeModeLabelMap[p.chargeMode] || '').toLowerCase().includes(search.toLowerCase())
+      )
+    : policies;
+
   const columns = [
     {
       title: '策略名称',
@@ -141,42 +152,42 @@ export default function AdminPoliciesPage() {
       dataIndex: 'policyCode',
       key: 'policyCode',
       width: 120,
-      render: (v: string) => <Tag>{v}</Tag>,
+      render: (v: string) => <Tag className="status-tag">{v}</Tag>,
     },
     {
       title: '计费模式',
       dataIndex: 'chargeMode',
       key: 'chargeMode',
       width: 100,
-      render: (v: string) => <Tag color={chargeModeColorMap[v]}>{chargeModeLabelMap[v]}</Tag>,
+      render: (v: string) => <Tag color={chargeModeColorMap[v]} className="status-tag">{chargeModeLabelMap[v]}</Tag>,
     },
     {
-      title: '时租',
+      title: '时租价格',
       dataIndex: 'hourlyPrice',
       key: 'hourlyPrice',
-      width: 90,
-      render: (v: number, r: PricingPolicy) => r.chargeMode === 'PAID' ? `¥${v.toFixed(2)}` : '-',
+      width: 100,
+      render: (v: number, r: PricingPolicy) => r.chargeMode === 'PAID' ? `¥${v.toFixed(2)}` : '免费',
     },
     {
       title: '免费时段',
       dataIndex: 'freeMinutes',
       key: 'freeMinutes',
-      width: 90,
+      width: 100,
       render: (v: number) => v > 0 ? `${v}分钟` : '无',
     },
     {
       title: '可暂离',
       dataIndex: 'allowTempHold',
       key: 'allowTempHold',
-      width: 80,
-      render: (v: number) => v ? <Tag color="success">是</Tag> : <Tag>否</Tag>,
+      width: 90,
+      render: (v: number) => v ? <Tag color="success" className="status-tag">是</Tag> : <Tag className="status-tag">否</Tag>,
     },
     {
       title: '状态',
       dataIndex: 'isActive',
       key: 'isActive',
-      width: 80,
-      render: (v: number) => v ? <Tag color="success">启用</Tag> : <Tag>停用</Tag>,
+      width: 90,
+      render: (v: number) => v ? <Tag color="success" className="status-tag">启用</Tag> : <Tag className="status-tag">停用</Tag>,
     },
     {
       title: '操作',
@@ -196,21 +207,35 @@ export default function AdminPoliciesPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <SafetyCertificateOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-            策略管理
-          </Title>
-          <Text type="secondary">管理计费策略、规则和费率</Text>
-        </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增策略</Button>
-      </div>
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="策略管理"
+        subtitle="管理计费策略、规则和费率"
+        action={
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} className="primary-gradient-btn">
+            新增策略
+          </Button>
+        }
+      />
 
-      <Card style={{ borderRadius: 16, border: 'none' }}>
+      <Card className="admin-table-card">
+        <div className="admin-search-bar">
+          <Input
+            prefix={<SearchOutlined style={{ color: 'var(--muted)' }} />}
+            placeholder="搜索策略名称、编码或计费模式..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            style={{ maxWidth: 320 }}
+          />
+        </div>
         <Table
-          dataSource={policies}
+          dataSource={filtered}
           columns={columns}
           rowKey="policyId"
           loading={loading}
@@ -230,20 +255,20 @@ export default function AdminPoliciesPage() {
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="policyCode" label="策略编码" rules={[{ required: true }]}>
-                <Input placeholder="如 FREE_STUDENT" disabled={!!editingPolicy} />
+              <Form.Item name="policyCode" label="策略编码" rules={[{ required: true, message: '请输入策略编码' }]}>
+                <Input placeholder="如 FREE_STUDENT" disabled={!!editingPolicy} style={{ borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="policyName" label="策略名称" rules={[{ required: true }]}>
-                <Input placeholder="如 学生免费策略" />
+              <Form.Item name="policyName" label="策略名称" rules={[{ required: true, message: '请输入策略名称' }]}>
+                <Input placeholder="如 学生免费策略" style={{ borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="chargeMode" label="计费模式" rules={[{ required: true }]}>
-                <Select options={[
+              <Form.Item name="chargeMode" label="计费模式" rules={[{ required: true, message: '请选择计费模式' }]}>
+                <Select style={{ borderRadius: 'var(--radius-sm)' }} options={[
                   { value: 'FREE', label: '免费' },
                   { value: 'PAID', label: '付费' },
                 ]} />
@@ -251,24 +276,24 @@ export default function AdminPoliciesPage() {
             </Col>
             <Col span={12}>
               <Form.Item name="hourlyPrice" label="时租价格（元）">
-                <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                <InputNumber min={0} precision={2} style={{ width: '100%', borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="freeMinutes" label="免费时段（分钟）">
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="maxReserveHours" label="最长预约（小时）">
-                <InputNumber min={1} max={24} style={{ width: '100%' }} />
+                <InputNumber min={1} max={24} style={{ width: '100%', borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item name="overtimePriceMultiplier" label="超时倍率">
-                <InputNumber min={1} max={10} precision={1} style={{ width: '100%' }} />
+                <InputNumber min={1} max={10} precision={1} style={{ width: '100%', borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
           </Row>
@@ -280,17 +305,17 @@ export default function AdminPoliciesPage() {
             </Col>
             <Col span={9}>
               <Form.Item name="tempHoldLimitMinutes" label="暂离时限（分钟）">
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
             <Col span={9}>
               <Form.Item name="tempHoldMaxCount" label="最大暂离次数">
-                <InputNumber min={0} style={{ width: '100%' }} />
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 'var(--radius-sm)' }} />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item name="remarks" label="备注">
-            <Input.TextArea rows={2} placeholder="可选" />
+            <Input.TextArea rows={2} placeholder="策略使用说明（可选）" style={{ borderRadius: 'var(--radius-sm)' }} />
           </Form.Item>
         </Form>
       </Modal>

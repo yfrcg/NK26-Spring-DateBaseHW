@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from 'react';
-import { Button, Card, Col, Empty, message, Popconfirm, Row, Statistic, Table, Tag, Typography, Input } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Card, Empty, message, Popconfirm, Table, Tag, Typography, Input } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -15,8 +15,11 @@ import { adminApi } from '@/api';
 import { userTypeMap, accountStatusMap, accountStatusColorMap } from '@/constants/domain';
 import type { User } from '@/types';
 import { logError } from '@/utils/logError';
+import { pageVariants } from '@/constants/motionVariants';
+import PageHeader from '@/components/PageHeader';
+import StatsCardRow from '@/components/StatsCardRow';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -73,12 +76,19 @@ export default function AdminUsersPage() {
     suspended: users.filter((u) => u.accountStatus === 'SUSPENDED').length,
   };
 
+  const statsCardData = [
+    { title: '总用户数', value: stats.total, icon: <TeamOutlined />, color: 'var(--primary)' },
+    { title: '正常用户', value: stats.active, icon: <CheckCircleOutlined />, color: 'var(--emerald)' },
+    { title: '管理员', value: stats.admin, icon: <UserSwitchOutlined />, color: 'var(--purple)' },
+    { title: '已停用', value: stats.suspended, icon: <CloseCircleOutlined />, color: 'var(--danger)' },
+  ];
+
   const columns: ColumnsType<User> = [
     {
       title: '用户编号',
       dataIndex: 'userNo',
       width: 130,
-      render: (v) => <Text strong style={{ fontFamily: 'monospace' }}>{v}</Text>,
+      render: (v) => <Text strong className="monospace-code">{v}</Text>,
     },
     {
       title: '姓名',
@@ -90,7 +100,7 @@ export default function AdminUsersPage() {
       dataIndex: 'userType',
       width: 100,
       render: (v) => (
-        <Tag color={v === 'ADMIN' ? 'purple' : v === 'STUDENT' ? 'blue' : 'cyan'} style={{ borderRadius: 20, border: 'none' }}>
+        <Tag color={v === 'ADMIN' ? 'purple' : v === 'STUDENT' ? 'blue' : 'cyan'} className="status-tag">
           {userTypeMap[v] || v}
         </Tag>
       ),
@@ -100,7 +110,7 @@ export default function AdminUsersPage() {
       dataIndex: 'accountStatus',
       width: 100,
       render: (v) => (
-        <Tag color={accountStatusColorMap[v]} style={{ borderRadius: 20, border: 'none' }}>
+        <Tag color={accountStatusColorMap[v]} className="status-tag">
           {accountStatusMap[v] || v}
         </Tag>
       ),
@@ -109,11 +119,16 @@ export default function AdminUsersPage() {
       title: '信用分',
       dataIndex: 'creditScore',
       width: 90,
-      render: (v) => (
-        <Text strong style={{ color: v >= 800 ? '#10b981' : v >= 600 ? '#f59e0b' : '#ef4444' }}>
-          {v ?? '-'}
-        </Text>
-      ),
+      render: (v) => {
+        const isExcellent = (v ?? 0) >= 80;
+        const isFair = (v ?? 0) >= 60;
+        const color = isExcellent ? 'var(--emerald)' : isFair ? 'var(--amber)' : 'var(--danger)';
+        return (
+          <Text strong style={{ color }}>
+            {v ?? '-'}
+          </Text>
+        );
+      },
     },
     { title: '手机号', dataIndex: 'phone', width: 130, render: (v) => v || '-' },
     { title: '邮箱', dataIndex: 'email', width: 180, ellipsis: true, render: (v) => v || '-' },
@@ -143,7 +158,6 @@ export default function AdminUsersPage() {
               size="small"
               loading={isLoading}
               icon={isActive ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
-              style={{ borderRadius: 8 }}
             >
               {isActive ? '停用' : '启用'}
             </Button>
@@ -154,50 +168,36 @@ export default function AdminUsersPage() {
   ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <Title level={3} style={{ marginBottom: 4 }}>
-            <TeamOutlined style={{ marginRight: 8, color: '#2563eb' }} />
-            用户管理
-          </Title>
-          <Text type="secondary">管理系统用户，查看状态并进行启用/停用操作</Text>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={load} style={{ borderRadius: 8 }}>
-          刷新
-        </Button>
-      </div>
+    <motion.div
+      variants={pageVariants}
+      initial="hidden"
+      animate="visible"
+      className="page-enter"
+    >
+      <PageHeader
+        title="用户管理"
+        subtitle="管理系统用户，查看状态并进行启用/停用操作"
+        action={
+          <Button icon={<ReloadOutlined />} onClick={load} className="btn-refresh">
+            刷新
+          </Button>
+        }
+      />
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        {[
-          { label: '总用户数', value: stats.total, icon: <TeamOutlined />, color: '#2563eb' },
-          { label: '正常用户', value: stats.active, icon: <CheckCircleOutlined />, color: '#10b981' },
-          { label: '管理员', value: stats.admin, icon: <UserSwitchOutlined />, color: '#0891b2' },
-          { label: '已停用', value: stats.suspended, icon: <CloseCircleOutlined />, color: '#ef4444' },
-        ].map((s, i) => (
-          <Col xs={12} sm={6} key={i}>
-            <Card style={{ borderRadius: 14, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
-              <Statistic
-                title={<span style={{ fontSize: 12, color: '#64748b' }}>{s.icon} {s.label}</span>}
-                value={s.value}
-                valueStyle={{ fontSize: 28, fontWeight: 700, color: s.color }}
-              />
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      <StatsCardRow stats={statsCardData} loading={loading} />
 
-      <Card style={{ borderRadius: 16, border: 'none' }} styles={{ body: { padding: 0 } }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
+      <Card className="admin-table-card">
+        <div className="admin-search-bar">
           <Input
-            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+            prefix={<SearchOutlined style={{ color: 'var(--muted)' }} />}
             placeholder="搜索用户编号、姓名或类型..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             allowClear
-            style={{ maxWidth: 320, borderRadius: 10 }}
+            style={{ maxWidth: 320 }}
           />
         </div>
+
         <Table
           columns={columns}
           dataSource={filtered}

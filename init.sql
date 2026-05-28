@@ -588,6 +588,186 @@ END$$
 DELIMITER ;
 
 -- =========================================================
+-- 示例数据
+-- 说明：业务演示账号使用空 password_hash，后端兼容“账号号=密码”登录；
+--       管理员账号由 FastAPI 启动时自动创建或修正为 admin/admin123456。
+-- =========================================================
+
+INSERT INTO users (
+    user_no,
+    real_name,
+    password_hash,
+    phone,
+    email,
+    user_type,
+    account_status,
+    balance,
+    arrears_amount,
+    total_recharge,
+    total_spend,
+    credit_score
+) VALUES
+('S20260001', '李明', '', '13800000001', 'liming@example.edu.cn', 'STUDENT', 'ACTIVE', 150.00, 0.00, 150.00, 0.00, 100),
+('S20260002', '张倩', '', '13800000002', 'zhangqian@example.edu.cn', 'STUDENT', 'ACTIVE', 80.00, 0.00, 80.00, 0.00, 96),
+('T20260001', '陈伟', '', '13800000003', 'chenwei@example.edu.cn', 'TEACHER', 'ACTIVE', 240.00, 0.00, 300.00, 60.00, 100),
+('S20260003', '王宇', '', '13800000004', 'wangyu@example.edu.cn', 'STUDENT', 'ARREARS_LOCKED', 0.00, 90.00, 50.00, 50.00, 90);
+
+INSERT INTO locations (
+    parent_location_id,
+    location_code,
+    location_name,
+    location_type,
+    floor_no,
+    room_no,
+    open_time,
+    close_time,
+    remarks
+) VALUES
+(NULL, 'BLD-LIB', '图书馆', 'BUILDING', NULL, NULL, '08:00:00', '22:00:00', '主校区图书馆'),
+(NULL, 'BLD-INNOVATION', '创新中心', 'BUILDING', NULL, NULL, '08:30:00', '21:30:00', '创新创业活动空间');
+
+INSERT INTO locations (
+    parent_location_id,
+    location_code,
+    location_name,
+    location_type,
+    floor_no,
+    room_no,
+    open_time,
+    close_time,
+    remarks
+) VALUES
+((SELECT location_id FROM locations WHERE location_code = 'BLD-LIB'), 'LIB-2F-EAST', '图书馆二层东区', 'ZONE', '2', NULL, '08:00:00', '22:00:00', '安静自习区'),
+((SELECT location_id FROM locations WHERE location_code = 'BLD-LIB'), 'LIB-3F-MEETING', '图书馆三层研讨区', 'ZONE', '3', NULL, '08:00:00', '22:00:00', '小组研讨区'),
+((SELECT location_id FROM locations WHERE location_code = 'BLD-INNOVATION'), 'INNO-4F-DESK', '创新中心四层工位区', 'ZONE', '4', NULL, '08:30:00', '21:30:00', '项目制工位区');
+
+INSERT INTO locations (
+    parent_location_id,
+    location_code,
+    location_name,
+    location_type,
+    floor_no,
+    room_no,
+    open_time,
+    close_time,
+    remarks
+) VALUES
+((SELECT location_id FROM locations WHERE location_code = 'LIB-2F-EAST'), 'LIB-A201', 'A201 自习室', 'ROOM', '2', 'A201', '08:00:00', '22:00:00', '单人座位'),
+((SELECT location_id FROM locations WHERE location_code = 'LIB-3F-MEETING'), 'LIB-B305', 'B305 研讨室', 'ROOM', '3', 'B305', '08:00:00', '22:00:00', '8 人会议室'),
+((SELECT location_id FROM locations WHERE location_code = 'INNO-4F-DESK'), 'INNO-401', '401 开放工位', 'ROOM', '4', '401', '08:30:00', '21:30:00', '长期开放工位');
+
+INSERT INTO pricing_policies (
+    policy_code,
+    policy_name,
+    charge_mode,
+    hourly_price,
+    free_minutes,
+    max_reserve_hours,
+    overtime_price_multiplier,
+    allow_temp_hold,
+    temp_hold_limit_minutes,
+    temp_hold_max_count,
+    remarks
+) VALUES
+('FREE-STUDY', '自习座位免费策略', 'FREE', 0.00, 240, 4, 1.50, 1, 15, 2, '学生自习座位免费预约'),
+('PAID-MEETING', '研讨室按小时计费', 'PAID', 30.00, 0, 4, 1.50, 0, 0, 0, '小型会议室标准计费'),
+('PAID-DESK', '开放工位按小时计费', 'PAID', 45.00, 0, 8, 1.50, 1, 20, 1, '创新中心开放工位计费');
+
+INSERT INTO spaces (
+    location_id,
+    policy_id,
+    space_code,
+    space_name,
+    space_type,
+    capacity,
+    equipment_desc,
+    status,
+    sort_no
+) VALUES
+((SELECT location_id FROM locations WHERE location_code = 'LIB-A201'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'FREE-STUDY'), 'A201-01', 'A201 1号自习座', 'SEAT', 1, '电源插座、阅读灯', 'ACTIVE', 10),
+((SELECT location_id FROM locations WHERE location_code = 'LIB-A201'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'FREE-STUDY'), 'A201-02', 'A201 2号自习座', 'SEAT', 1, '电源插座、阅读灯', 'ACTIVE', 20),
+((SELECT location_id FROM locations WHERE location_code = 'LIB-B305'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'PAID-MEETING'), 'B305-MEETING', 'B305 小型研讨室', 'ROOM', 8, '投影仪、白板、视频会议设备', 'ACTIVE', 30),
+((SELECT location_id FROM locations WHERE location_code = 'INNO-401'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'PAID-DESK'), 'INNO-401-D01', '创新中心 401-D01 工位', 'DESK', 1, '升降桌、外接显示器', 'ACTIVE', 40),
+((SELECT location_id FROM locations WHERE location_code = 'INNO-401'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'PAID-DESK'), 'INNO-401-D02', '创新中心 401-D02 工位', 'DESK', 1, '升降桌、外接显示器', 'MAINTENANCE', 50);
+
+INSERT INTO reservations (
+    reservation_no,
+    user_id,
+    space_id,
+    policy_id,
+    reservation_type,
+    start_time,
+    end_time,
+    reservation_status,
+    charge_mode_snapshot,
+    hourly_price_snapshot,
+    free_minutes_snapshot,
+    max_reserve_hours_snapshot,
+    overtime_multiplier_snapshot,
+    amount_estimated
+) VALUES
+('RSV-DEMO-001', (SELECT user_id FROM users WHERE user_no = 'S20260001'), (SELECT space_id FROM spaces WHERE space_code = 'A201-01'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'FREE-STUDY'), 'ONLINE', DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 9 HOUR, DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 11 HOUR, 'FINISHED', 'FREE', 0.00, 240, 4, 1.50, 0.00),
+('RSV-DEMO-002', (SELECT user_id FROM users WHERE user_no = 'T20260001'), (SELECT space_id FROM spaces WHERE space_code = 'B305-MEETING'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'PAID-MEETING'), 'ONLINE', DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 14 HOUR, DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 16 HOUR, 'FINISHED', 'PAID', 30.00, 0, 4, 1.50, 60.00),
+('RSV-DEMO-003', (SELECT user_id FROM users WHERE user_no = 'S20260002'), (SELECT space_id FROM spaces WHERE space_code = 'A201-02'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'FREE-STUDY'), 'ONLINE', DATE_ADD(CURDATE(), INTERVAL 1 DAY) + INTERVAL 10 HOUR, DATE_ADD(CURDATE(), INTERVAL 1 DAY) + INTERVAL 12 HOUR, 'CONFIRMED', 'FREE', 0.00, 240, 4, 1.50, 0.00),
+('RSV-DEMO-004', (SELECT user_id FROM users WHERE user_no = 'S20260002'), (SELECT space_id FROM spaces WHERE space_code = 'B305-MEETING'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'PAID-MEETING'), 'ONLINE', DATE_ADD(CURDATE(), INTERVAL 2 DAY) + INTERVAL 15 HOUR, DATE_ADD(CURDATE(), INTERVAL 2 DAY) + INTERVAL 17 HOUR, 'CONFIRMED', 'PAID', 30.00, 0, 4, 1.50, 60.00),
+('RSV-DEMO-005', (SELECT user_id FROM users WHERE user_no = 'S20260003'), (SELECT space_id FROM spaces WHERE space_code = 'INNO-401-D01'), (SELECT policy_id FROM pricing_policies WHERE policy_code = 'PAID-DESK'), 'ONLINE', DATE_SUB(CURDATE(), INTERVAL 2 DAY) + INTERVAL 8 HOUR, DATE_SUB(CURDATE(), INTERVAL 2 DAY) + INTERVAL 10 HOUR, 'FINISHED', 'PAID', 45.00, 0, 8, 1.50, 90.00);
+
+INSERT INTO usage_sessions (
+    reservation_id,
+    check_in_time,
+    check_out_time,
+    actual_minutes,
+    overtime_minutes,
+    hold_count,
+    session_status,
+    notes
+) VALUES
+((SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-001'), DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 9 HOUR, DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 11 HOUR, 120, 0, 0, 'ENDED', '按时签退'),
+((SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-002'), DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 14 HOUR, DATE_SUB(CURDATE(), INTERVAL 1 DAY) + INTERVAL 16 HOUR, 120, 0, 0, 'ENDED', '会议室正常使用'),
+((SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-005'), DATE_SUB(CURDATE(), INTERVAL 2 DAY) + INTERVAL 8 HOUR, DATE_SUB(CURDATE(), INTERVAL 2 DAY) + INTERVAL 10 HOUR, 120, 0, 0, 'ENDED', '余额不足，账单待支付');
+
+INSERT INTO billing_orders (
+    bill_no,
+    reservation_id,
+    user_id,
+    bill_status,
+    base_amount,
+    overtime_amount,
+    discount_amount,
+    payable_amount,
+    paid_amount,
+    settled_at,
+    remarks
+) VALUES
+('BILL-DEMO-001', (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-001'), (SELECT user_id FROM users WHERE user_no = 'S20260001'), 'WAIVED', 0.00, 0.00, 0.00, 0.00, 0.00, NOW(), '免费自习座位'),
+('BILL-DEMO-002', (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-002'), (SELECT user_id FROM users WHERE user_no = 'T20260001'), 'PAID', 60.00, 0.00, 0.00, 60.00, 60.00, NOW(), '教师会议室预约已结清'),
+('BILL-DEMO-003', (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-005'), (SELECT user_id FROM users WHERE user_no = 'S20260003'), 'UNPAID', 90.00, 0.00, 0.00, 90.00, 0.00, NULL, '余额不足，等待补缴');
+
+INSERT INTO user_transactions (
+    txn_no,
+    user_id,
+    reservation_id,
+    bill_id,
+    session_id,
+    txn_category,
+    txn_type,
+    direction,
+    amount,
+    before_balance,
+    after_balance,
+    credit_delta,
+    before_score,
+    after_score,
+    remark
+) VALUES
+('TXN-DEMO-001', (SELECT user_id FROM users WHERE user_no = 'S20260001'), NULL, NULL, NULL, 'ACCOUNT', 'RECHARGE', 'IN', 150.00, 0.00, 150.00, NULL, NULL, NULL, '示例充值'),
+('TXN-DEMO-002', (SELECT user_id FROM users WHERE user_no = 'S20260002'), NULL, NULL, NULL, 'ACCOUNT', 'RECHARGE', 'IN', 80.00, 0.00, 80.00, NULL, NULL, NULL, '示例充值'),
+('TXN-DEMO-003', (SELECT user_id FROM users WHERE user_no = 'T20260001'), NULL, NULL, NULL, 'ACCOUNT', 'RECHARGE', 'IN', 300.00, 0.00, 300.00, NULL, NULL, NULL, '示例充值'),
+('TXN-DEMO-004', (SELECT user_id FROM users WHERE user_no = 'T20260001'), (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-002'), (SELECT bill_id FROM billing_orders WHERE bill_no = 'BILL-DEMO-002'), (SELECT session_id FROM usage_sessions WHERE reservation_id = (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-002')), 'ACCOUNT', 'CONSUME', 'OUT', 60.00, 300.00, 240.00, NULL, NULL, NULL, '会议室预约消费'),
+('TXN-DEMO-005', (SELECT user_id FROM users WHERE user_no = 'S20260002'), NULL, NULL, NULL, 'CREDIT', 'HOLD_TIMEOUT', 'OUT', NULL, NULL, NULL, -4, 100, 96, '暂离超时扣分'),
+('TXN-DEMO-006', (SELECT user_id FROM users WHERE user_no = 'S20260003'), (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-005'), (SELECT bill_id FROM billing_orders WHERE bill_no = 'BILL-DEMO-003'), (SELECT session_id FROM usage_sessions WHERE reservation_id = (SELECT reservation_id FROM reservations WHERE reservation_no = 'RSV-DEMO-005')), 'CREDIT', 'OVERTIME', 'OUT', NULL, NULL, NULL, -10, 100, 90, '欠费账单产生信用扣分');
+
+-- =========================================================
 -- 视图
 -- =========================================================
 

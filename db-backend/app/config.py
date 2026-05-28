@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     DB_HOST: str = "localhost"
     DB_PORT: int = 3306
     DB_USER: str = "root"
-    DB_PASSWORD: str = "wys13389978139"
+    DB_PASSWORD: str = ""
     DB_NAME: str = "shared_space_booking_db"
 
     AUTH_TOKEN_TTL_HOURS: int = 24
